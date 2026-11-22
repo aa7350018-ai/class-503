@@ -276,25 +276,41 @@
 
       <!-- 【左下區域（佔左側高度 60%）】：寬敞好點擊的「純座號自主簽到區」 -->
       <section id="bottomLeftCard" class="cute-card bg-white/75 border-2 border-emerald-200/85 flex flex-col overflow-hidden">
-        <!-- 頂部：已到徽章 ＋ 單行不擠壓的紅色「未到座號」膠囊列 -->
+        <!-- 頂部：已到徽章 ＋ 未到座號膠囊列 ＋ 遲到座號膠囊列 -->
         <div id="absentHeaderBar" class="bg-emerald-50/80 border-b border-emerald-200/80 px-3 py-1.5 flex flex-col gap-1 shrink-0">
           <div class="flex items-center justify-between gap-2">
             <div class="flex items-center gap-1.5">
               <span class="text-lg">🌱</span>
               <span class="text-sm lg:text-base font-black text-emerald-950">晨間座號簽到</span>
+              <span class="hidden sm:inline-block text-[11px] font-bold text-emerald-700/80 bg-emerald-100/80 px-2 py-0.5 rounded-full">07:50前準時 · 06:00重置</span>
             </div>
-            <span class="bg-white border border-emerald-200 px-2.5 py-0.5 rounded-full text-xs lg:text-sm font-black text-emerald-800 shadow-2xs">
-              已到 <span id="presentCount" class="mono-num text-emerald-600 text-sm lg:text-base">0</span> / <span id="totalCount" class="mono-num text-sm lg:text-base">28</span> 人
-            </span>
+            <div class="flex items-center gap-1.5">
+              <span id="lateSummaryPill" class="hidden bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full text-xs font-black text-amber-800 shadow-2xs">
+                遲到 <span id="lateCount" class="mono-num text-amber-700">0</span> 人
+              </span>
+              <span class="bg-white border border-emerald-200 px-2.5 py-0.5 rounded-full text-xs lg:text-sm font-black text-emerald-800 shadow-2xs">
+                已到 <span id="presentCount" class="mono-num text-emerald-600 text-sm lg:text-base">0</span> / <span id="totalCount" class="mono-num text-sm lg:text-base">28</span> 人
+              </span>
+            </div>
           </div>
 
-          <!-- 尚未簽到座號單行橫向滑動膠囊列（固定單行高度，絕不往下擠壓簽到格子） -->
-          <div class="flex items-center gap-1.5 h-7 overflow-hidden">
+          <!-- 尚未簽到座號單行橫向滑動膠囊列 -->
+          <div class="flex items-center gap-1.5 h-6 overflow-hidden">
             <span id="absentBadgeLabel" class="bg-rose-500 text-white text-xs font-black px-2 py-0.5 rounded-full shrink-0">
               未到
             </span>
             <div id="absentPillsContainer" class="flex items-center gap-1 overflow-x-auto custom-scroll whitespace-nowrap py-0.5 flex-1 min-w-0">
               <!-- 動態生成紅色未到座號小膠囊 -->
+            </div>
+          </div>
+
+          <!-- 超過 07:50 遲到座號專屬單行橫向滑動膠囊列（有人遲到時自動顯示） -->
+          <div id="lateRowContainer" class="hidden items-center gap-1.5 h-6 overflow-hidden">
+            <span id="lateBadgeLabel" class="bg-amber-500 text-white text-xs font-black px-2 py-0.5 rounded-full shrink-0">
+              遲到
+            </span>
+            <div id="latePillsContainer" class="flex items-center gap-1 overflow-x-auto custom-scroll whitespace-nowrap py-0.5 flex-1 min-w-0">
+              <!-- 動態生成琥珀色遲到座號小膠囊 -->
             </div>
           </div>
         </div>
@@ -306,7 +322,7 @@
 
         <!-- 底部：簽到操作列 -->
         <div class="bg-emerald-50/75 border-t border-emerald-100/80 px-3 py-1 flex items-center justify-between gap-1.5 shrink-0">
-          <span class="text-xs font-bold text-emerald-800/85 truncate">👆 點擊座號簽到（無姓名隱私保護）</span>
+          <span class="text-xs font-bold text-emerald-800/85 truncate">👆 07:50前綠色準時 · 超過07:50橘黃色遲到</span>
           <div class="flex items-center gap-1.5 shrink-0">
             <button type="button" id="btnExportCsv" class="bg-white hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-black px-2.5 py-0.5 rounded-xl transition cursor-pointer">
               📥 匯出
@@ -673,6 +689,10 @@
       const DATA_STORAGE_KEY = "our_503_cute_classroom_v1";
       const CLOUD_STORAGE_KEY = "our_503_cloud_config_v1";
 
+      // 簽到規則常數：每日 AM 06:00 重置；超過 07:50（即 07:51 起）判定為遲到
+      const RESET_HOUR = 6;
+      const LATE_CUTOFF_MINUTES = 7 * 60 + 50; // 470 分鐘（07:50）
+
       const DEFAULT_SUBJECTS = ["國習", "國重", "數習", "數重", "社作", "社習"];
       const PRESET_CLASS_ICONS = ["🐶", "🐱", "🐻", "🐰", "🦁", "🐼", "🦊", "🐯", "🐸", "🐧", "🦄", "🦖", "🚀", "🌻", "🌈", "⭐"];
       const BG_THEMES = [
@@ -714,7 +734,7 @@
         reminderTitle: DEFAULT_REMINDER_TITLE,
         warmReminder: DEFAULT_REMINDER,
         subjects: [...DEFAULT_SUBJECTS],
-        attendanceDate: getTodayDateStr(),
+        attendanceDate: getEffectiveAttendanceDateStr(),
         attendance: {},
         notebookText: DEFAULT_NOTEBOOK_TEXT,
         // 初始預設狀態時間戳設為 0，確保新開啟的手機連線時永遠優先下載雲端（電腦）的現有資料，不會用預設範本覆蓋！
@@ -731,18 +751,34 @@
       let toastTimer = null;
       let manualResetNumberFlag = false;
 
-      // ==================== 日期與時間工具 ====================
-      function getTodayDateStr() {
-        const now = new Date();
-        const y = now.getFullYear();
-        const m = String(now.getMonth() + 1).padStart(2, "0");
-        const d = String(now.getDate()).padStart(2, "0");
-        return `${y}-${m}-${d}`;
+      // ==================== 日期、時間與簽到規則工具 ====================
+      // 每日 AM 06:00 作為簽到日界線：00:00~05:59 仍算前一個簽到週期，06:00 起算新的一天
+      function getEffectiveAttendanceDateStr(dateObj) {
+        const d = dateObj ? new Date(dateObj.getTime()) : new Date();
+        if (d.getHours() < RESET_HOUR) {
+          d.setDate(d.getDate() - 1);
+        }
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
       }
 
       function getNowHHMM() {
         const now = new Date();
         return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+      }
+
+      // 判斷簽到時間字串 "HH:MM" 是否超過 07:50（07:51 起為遲到；AM 00:00~05:59 延續前一日也視為遲到）
+      function isLateTimeStr(hhmmStr) {
+        if (!hhmmStr || typeof hhmmStr !== "string") return false;
+        const parts = hhmmStr.split(":");
+        if (parts.length < 2) return false;
+        const h = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        if (isNaN(h) || isNaN(m)) return false;
+        if (h < RESET_HOUR) return true;
+        return h * 60 + m > LATE_CUTOFF_MINUTES;
       }
 
       function formatSeatTwoDigits(num) {
@@ -777,12 +813,16 @@
           document.getElementById("rocDateDisplay").textContent = rocStr;
           document.getElementById("clockDisplay").textContent = timeStr;
 
-          const today = getTodayDateStr();
-          if (state.attendanceDate !== today) {
-            state.attendanceDate = today;
+          // 每日 AM 06:00 自動重置簽到系統
+          const cycleDate = getEffectiveAttendanceDateStr(now);
+          if (state.attendanceDate !== cycleDate) {
+            state.attendanceDate = cycleDate;
             state.attendance = {};
+            state.updatedAt = Date.now();
             saveLocalState();
             renderAll();
+            showToast("🌅", "早安！已於 AM 06:00 自動重置今日簽到系統");
+            pushToCloud();
           }
         } catch (err) {
           console.error("時鐘更新異常:", err);
@@ -802,9 +842,9 @@
               }
             }
           }
-          const today = getTodayDateStr();
-          if (state.attendanceDate !== today) {
-            state.attendanceDate = today;
+          const cycleDate = getEffectiveAttendanceDateStr();
+          if (state.attendanceDate !== cycleDate) {
+            state.attendanceDate = cycleDate;
             state.attendance = {};
           }
           const rawCloud = localStorage.getItem(CLOUD_STORAGE_KEY);
@@ -898,11 +938,11 @@
           const remote = await res.json();
           if (remote && typeof remote === "object") {
             if ((remote.updatedAt || 0) > (state.updatedAt || 0)) {
-              const today = getTodayDateStr();
+              const cycleDate = getEffectiveAttendanceDateStr();
               state = Object.assign({}, state, remote);
               if (!Array.isArray(state.subjects)) state.subjects = [...DEFAULT_SUBJECTS];
-              if (state.attendanceDate !== today) {
-                state.attendanceDate = today;
+              if (state.attendanceDate !== cycleDate) {
+                state.attendanceDate = cycleDate;
                 state.attendance = {};
               }
               saveLocalState();
@@ -1036,9 +1076,14 @@
         const grid = document.getElementById("seatGrid");
         const pillsBox = document.getElementById("absentPillsContainer");
         const absentBadge = document.getElementById("absentBadgeLabel");
+        const lateRow = document.getElementById("lateRowContainer");
+        const latePillsBox = document.getElementById("latePillsContainer");
+        const lateBadge = document.getElementById("lateBadgeLabel");
+        const lateSummaryPill = document.getElementById("lateSummaryPill");
 
         grid.innerHTML = "";
         pillsBox.innerHTML = "";
+        latePillsBox.innerHTML = "";
 
         const total = Math.max(1, Math.min(42, parseInt(state.totalSeats, 10) || 28));
         const cols = total <= 28 ? 7 : Math.ceil(total / 5);
@@ -1047,19 +1092,24 @@
         grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
         grid.style.gridTemplateRows = `repeat(${rows}, minmax(0, 1fr))`;
 
-        const today = getTodayDateStr();
+        const cycleDate = getEffectiveAttendanceDateStr();
         const map = state.attendance || {};
         let presentCount = 0;
         const absentList = [];
+        const lateList = [];
 
         for (let seat = 1; seat <= total; seat++) {
           const key = String(seat);
           const rec = map[key];
-          const isPresent = Boolean(rec && rec.date === today);
+          const isPresent = Boolean(rec && rec.date === cycleDate);
           const seatLabel = formatSeatTwoDigits(seat);
+          const isLate = isPresent && Boolean(rec.late || isLateTimeStr(rec.time));
 
           if (isPresent) {
             presentCount++;
+            if (isLate) {
+              lateList.push({ seat: seatLabel, time: rec.time });
+            }
           } else {
             absentList.push(seatLabel);
           }
@@ -1068,13 +1118,22 @@
           btn.type = "button";
           btn.addEventListener("click", () => handleSeatClick(seat));
 
-          if (isPresent) {
+          if (isPresent && isLate) {
+            // 超過 07:50 遲到簽到：琥珀橘黃色警示樣式，明確區別於準時簽到
+            btn.className = "animate-candy-bounce min-h-0 h-full w-full flex flex-col items-center justify-center rounded-2xl bg-gradient-to-b from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white border-2 border-amber-600/80 px-1 py-0.5 shadow-xs transition cursor-pointer overflow-hidden";
+            btn.innerHTML = `
+              <span class="mono-num text-xl xl:text-2xl font-extrabold leading-none tracking-tight">${seatLabel}</span>
+              <span class="mono-num text-[11px] xl:text-xs font-extrabold bg-amber-950/45 text-amber-50 px-2 py-0.5 rounded-full mt-1 leading-none">⏰${escapeHtml(rec.time)}</span>
+            `;
+          } else if (isPresent) {
+            // 07:50（含）以前準時簽到：翠綠色樣式
             btn.className = "animate-candy-bounce min-h-0 h-full w-full flex flex-col items-center justify-center rounded-2xl bg-gradient-to-b from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white border border-emerald-500 px-1 py-0.5 shadow-xs transition cursor-pointer overflow-hidden";
             btn.innerHTML = `
               <span class="mono-num text-xl xl:text-2xl font-extrabold leading-none tracking-tight">${seatLabel}</span>
               <span class="mono-num text-[11px] xl:text-xs font-extrabold bg-emerald-800/45 text-white px-2 py-0.5 rounded-full mt-1 leading-none">✔${escapeHtml(rec.time)}</span>
             `;
           } else {
+            // 尚未簽到
             btn.className = "min-h-0 h-full w-full flex flex-col items-center justify-center rounded-2xl bg-white/80 hover:bg-amber-50/95 border-2 border-stone-200/85 hover:border-amber-300 active:scale-95 text-stone-700 px-1 py-0.5 shadow-2xs transition cursor-pointer overflow-hidden";
             btn.innerHTML = `
               <span class="mono-num text-xl xl:text-2xl font-extrabold text-stone-700 leading-none tracking-tight">${seatLabel}</span>
@@ -1087,13 +1146,17 @@
 
         document.getElementById("presentCount").textContent = presentCount;
         document.getElementById("totalCount").textContent = total;
+        document.getElementById("lateCount").textContent = lateList.length;
 
+        // 渲染未到座號膠囊
         if (absentList.length === 0) {
           absentBadge.className = "bg-emerald-500 text-white text-xs font-black px-2 py-0.5 rounded-full shrink-0";
           absentBadge.textContent = "全到齊 🎉";
           const okSpan = document.createElement("span");
           okSpan.className = "text-xs lg:text-sm font-black text-emerald-700";
-          okSpan.textContent = "太棒了！503 全班都準時到校囉！";
+          okSpan.textContent = lateList.length === 0
+            ? "太棒了！503 全班都準時到校囉！"
+            : `全班皆已到校（其中 ${lateList.length} 人超過 07:50 遲到）`;
           pillsBox.appendChild(okSpan);
         } else {
           absentBadge.className = "bg-rose-500 text-white text-xs font-black px-2 py-0.5 rounded-full shrink-0";
@@ -1104,6 +1167,24 @@
             pill.textContent = numStr;
             pillsBox.appendChild(pill);
           });
+        }
+
+        // 另外獨立渲染「超過 07:50 遲到號碼」膠囊列
+        if (lateList.length > 0) {
+          lateSummaryPill.classList.remove("hidden");
+          lateRow.classList.remove("hidden");
+          lateRow.classList.add("flex");
+          lateBadge.textContent = `遲到 (${lateList.length})`;
+          lateList.forEach((item) => {
+            const pill = document.createElement("span");
+            pill.className = "mono-num bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 rounded-lg text-xs font-extrabold shrink-0";
+            pill.textContent = `${item.seat} (${item.time})`;
+            latePillsBox.appendChild(pill);
+          });
+        } else {
+          lateSummaryPill.classList.add("hidden");
+          lateRow.classList.add("hidden");
+          lateRow.classList.remove("flex");
         }
       }
 
@@ -1157,23 +1238,29 @@
       // ==================== 簽到互動邏輯 ====================
       function handleSeatClick(seatNum) {
         try {
-          const today = getTodayDateStr();
+          const cycleDate = getEffectiveAttendanceDateStr();
           const key = String(seatNum);
           const existing = state.attendance[key];
           const seatLabel = formatSeatTwoDigits(seatNum);
 
-          if (existing && existing.date === today) {
+          if (existing && existing.date === cycleDate) {
+            const isLate = Boolean(existing.late || isLateTimeStr(existing.time));
             pendingCancelSeatNum = seatNum;
-            document.getElementById("cancelSeatDesc").textContent = `${seatLabel}號（已於 ${existing.time} 簽到）`;
+            document.getElementById("cancelSeatDesc").textContent = `${seatLabel}號（已於 ${existing.time} 簽到${isLate ? "・遲到" : ""}）`;
             openModal("modalCancelSeat");
           } else {
             const nowTime = getNowHHMM();
-            state.attendanceDate = today;
-            state.attendance[key] = { date: today, time: nowTime };
+            const isLate = isLateTimeStr(nowTime);
+            state.attendanceDate = cycleDate;
+            state.attendance[key] = { date: cycleDate, time: nowTime, late: isLate };
             state.updatedAt = Date.now();
             saveLocalState();
             renderSeatCheckInBoard();
-            showToast("🌟", `${seatLabel}號 簽到成功（${nowTime}）`);
+            if (isLate) {
+              showToast("⏰", `${seatLabel}號 已簽到（${nowTime}，超過 07:50 記為遲到）`);
+            } else {
+              showToast("🌟", `${seatLabel}號 準時簽到成功（${nowTime}）`);
+            }
             pushToCloud();
           }
         } catch (err) {
@@ -1202,24 +1289,26 @@
       // ==================== 匯出 CSV 與重置今日簽到 ====================
       function exportAttendanceCsv() {
         try {
-          const today = getTodayDateStr();
+          const cycleDate = getEffectiveAttendanceDateStr();
           const total = Math.max(1, Math.min(42, parseInt(state.totalSeats, 10) || 28));
-          const rows = ["\uFEFF日期,座號,出席狀態,到校時間"];
+          const rows = ["\uFEFF簽到日期,座號,出席狀態,到校時間"];
           for (let s = 1; s <= total; s++) {
             const rec = state.attendance[String(s)];
-            const isPresent = Boolean(rec && rec.date === today);
-            rows.push(`${today},${formatSeatTwoDigits(s)},${isPresent ? "已到" : "未到"},${isPresent ? rec.time : "--:--"}`);
+            const isPresent = Boolean(rec && rec.date === cycleDate);
+            const isLate = isPresent && Boolean(rec.late || isLateTimeStr(rec.time));
+            const statusText = !isPresent ? "未到" : isLate ? "遲到" : "已到";
+            rows.push(`${cycleDate},${formatSeatTwoDigits(s)},${statusText},${isPresent ? rec.time : "--:--"}`);
           }
           const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = url;
-          a.download = `503班_座號簽到表_${today}.csv`;
+          a.download = `503班_座號簽到表_${cycleDate}.csv`;
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
           URL.revokeObjectURL(url);
-          showToast("📥", `已匯出 ${today} 純座號簽到表`);
+          showToast("📥", `已匯出 ${cycleDate} 純座號簽到表（含遲到標記）`);
         } catch (err) {
           console.error("匯出 CSV 失敗:", err);
         }
@@ -1227,7 +1316,7 @@
 
       function confirmResetToday() {
         state.attendance = {};
-        state.attendanceDate = getTodayDateStr();
+        state.attendanceDate = getEffectiveAttendanceDateStr();
         state.updatedAt = Date.now();
         saveLocalState();
         renderSeatCheckInBoard();
@@ -1522,7 +1611,7 @@
 
       function copyParentsPlainText() {
         try {
-          const today = getTodayDateStr();
+          const today = getEffectiveAttendanceDateStr();
           const content = document.getElementById("editNotebookText").value.trim() || "無";
           const reminder = document.getElementById("editWarmReminder").value.trim();
           const fullText = `🐾 【${state.classTitle}】${today}\n\n${content}${reminder ? `\n\n💡 溫馨提醒：${reminder}` : ""}`;
@@ -1600,11 +1689,11 @@
 
           // 只要雲端已有資料，且雲端時間 >= 本機時間（或本機仍為尚未編輯的預設狀態 updatedAt === 0），優先將雲端（電腦）內容拉取下來！
           if (remote && typeof remote === "object" && ((remote.updatedAt || 0) >= (state.updatedAt || 0) || state.updatedAt === 0)) {
-            const today = getTodayDateStr();
+            const cycleDate = getEffectiveAttendanceDateStr();
             state = Object.assign({}, state, remote);
             if (!Array.isArray(state.subjects)) state.subjects = [...DEFAULT_SUBJECTS];
-            if (state.attendanceDate !== today) {
-              state.attendanceDate = today;
+            if (state.attendanceDate !== cycleDate) {
+              state.attendanceDate = cycleDate;
               state.attendance = {};
             }
             saveLocalState();

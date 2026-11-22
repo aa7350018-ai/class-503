@@ -1,0 +1,1818 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>我們的 503</title>
+  <!-- 手機桌面 App 全螢幕模式（PWA / Web App 支援） -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="我們的 503" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#fff8eb" />
+  <!-- 內嵌可愛柴犬/503 桌面 App 圖示（iOS 與 Android 加入主畫面自動顯示） -->
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%23fb923c'/><text x='50' y='66' font-size='56' text-anchor='middle'>🐶</text></svg>" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%23fb923c'/><text x='50' y='66' font-size='56' text-anchor='middle'>🐶</text></svg>" />
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts：可愛圓體 Zen Maru Gothic、思源黑體與等寬數字字型 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700;800&family=Noto+Sans+TC:wght@500;700;900&family=Noto+Serif+TC:wght@700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet" />
+  <style>
+    /* 全域盒模型與基礎設定 */
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "Zen Maru Gothic", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+      background-color: #fff8eb;
+      color: #292524;
+      user-select: none;
+    }
+
+    .mono-num {
+      font-family: "JetBrains Mono", monospace;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ==================== 電腦大螢幕（>= 960px）：嚴格 100vh 三區黃金比例零捲動 ==================== */
+    @media (min-width: 960px) {
+      html, body {
+        height: 100vh;
+        overflow: hidden;
+        margin: 0;
+        padding: 0;
+      }
+      #appShell {
+        height: 100vh;
+        display: flex;
+        flex-direction: row;
+        gap: 12px;
+        padding: 12px;
+        overflow: hidden;
+      }
+      /* 左側欄放大至 47% 寬度（上下調整為平衡比例：左上班規 40% + 左下簽到 60%） */
+      #leftColumn {
+        width: 47%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-height: 0;
+      }
+      #topLeftCard {
+        height: 40%;
+        min-height: 0;
+      }
+      #bottomLeftCard {
+        height: 60%;
+        min-height: 0;
+      }
+      /* 右側欄佔寬 53%，佔滿整個右側 100% 高度 */
+      #rightColumn {
+        width: 53%;
+        height: 100%;
+        min-height: 0;
+      }
+    }
+
+    /* ==================== 手機或平板直屏（< 960px）：流暢單欄捲動 ==================== */
+    @media (max-width: 959px) {
+      html, body {
+        min-height: 100vh;
+        overflow-x: hidden;
+        overflow-y: auto;
+        margin: 0;
+        padding: 0;
+      }
+      #appShell {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 10px;
+      }
+      #leftColumn, #rightColumn {
+        width: 100%;
+      }
+      #leftColumn {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      #rightColumn {
+        min-height: 68vh;
+      }
+    }
+
+    /* 可愛馬卡龍圓潤卡片（高透明度毛玻璃質感，透出底層自訂背景） */
+    .cute-card {
+      border-radius: 24px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: 0 6px 20px -4px rgba(180, 140, 90, 0.12), 0 2px 6px -1px rgba(180, 140, 90, 0.06);
+    }
+
+    /* 全螢幕自訂背景圖片浮層 */
+    #customBgLayer {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      pointer-events: none;
+      transition: opacity 0.25s ease, background-image 0.25s ease;
+    }
+
+    #appShell {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* 班規與溫馨提醒專用大字體便條紙質感（格線間距將由 JS 依實際字體高度精準同步） */
+    .rules-note-paper {
+      font-family: "BiauKai", "DFKai-SB", "標楷體", "Zen Maru Gothic", "Noto Sans TC", sans-serif;
+      background-color: rgba(255, 253, 250, 0.78);
+      line-height: 1.5;
+    }
+
+    /* ==================== 台灣國小黑板正統「純一體直式、完全不分欄」可愛聯絡簿畫布 ==================== */
+    .notebook-canvas {
+      font-family: "BiauKai", "DFKai-SB", "標楷體", "Noto Serif TC", "Zen Maru Gothic", serif;
+      background-color: rgba(255, 254, 249, 0.76);
+      color: #292524;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* 正統直排書寫（緊靠右側，從右上角開始由上而下、由右至左書寫，絕不偏移） */
+    .writing-vertical {
+      writing-mode: vertical-rl;
+      text-orientation: upright;
+      line-height: 2.0;
+      overflow-x: auto;
+      overflow-y: hidden;
+      text-align: start;
+      direction: ltr;
+    }
+
+    /* 直排中的 1~3 字元組合（如 1.、12.、100、P.13）左右並排呈現於同一格（縱中橫），按 Enter 換行則自動分開 */
+    .tcy-num {
+      text-combine-upright: all;
+      -webkit-text-combine: horizontal;
+      -ms-text-combine-horizontal: all;
+      letter-spacing: 0;
+      font-family: "JetBrains Mono", "Noto Sans TC", sans-serif;
+      font-weight: 800;
+    }
+
+    /* 直排中的波浪符（～、~）轉向 90 度變成直立連接線 */
+    .v-tilde {
+      display: inline-block;
+      transform: rotate(90deg);
+      transform-origin: center center;
+      line-height: 1;
+    }
+
+    /* 橫排單一畫布模式（從左上角開始由左至右、由上而下書寫） */
+    .writing-horizontal {
+      writing-mode: horizontal-tb;
+      line-height: 1.75;
+      overflow-y: auto;
+      overflow-x: hidden;
+      text-align: start;
+      direction: ltr;
+    }
+
+    /* 簽到卡片點擊彈跳動畫 */
+    @keyframes candyBounce {
+      0% { transform: scale(0.92); }
+      55% { transform: scale(1.06); }
+      100% { transform: scale(1); }
+    }
+    .animate-candy-bounce {
+      animation: candyBounce 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* 可愛雲朵漂浮微動畫 */
+    @keyframes gentleFloat {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-3px); }
+    }
+    .animate-float {
+      animation: gentleFloat 3.2s ease-in-out infinite;
+    }
+
+    /* 細緻捲軸 */
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(217, 119, 6, 0.28);
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body>
+  <!-- 全螢幕自訂背景圖片浮層（支援調整透明度） -->
+  <div id="customBgLayer" style="opacity: 0.35;"></div>
+
+  <!-- ==================== 16:9 單畫面三區黃金比例主容器 ==================== -->
+  <div id="appShell">
+
+    <!-- ==================== 左側欄（放大至寬度 47%，上下切分為「左上班規 40%」與「左下簽到 60%」） ==================== -->
+    <div id="leftColumn">
+
+      <!-- 【左上區域（佔左側高度 40%）】：「我們的 503」看板 ＋ 「503 班級公約與溫馨提醒」 -->
+      <section id="topLeftCard" class="cute-card bg-gradient-to-br from-amber-50/75 via-orange-50/70 to-rose-50/70 border-2 border-amber-200/85 p-3 lg:p-3.5 flex flex-col justify-between overflow-hidden relative">
+        <!-- 可愛背景裝飾小圖示 -->
+        <span class="absolute -right-2 -top-2 text-5xl opacity-20 pointer-events-none select-none">☁️</span>
+        <span class="absolute right-14 bottom-2 text-3xl opacity-20 pointer-events-none select-none">⭐</span>
+
+        <!-- 第一層：「我們的 503」超大標題與日期時鐘 -->
+        <div class="flex items-center justify-between gap-2 shrink-0">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span id="classIconDisplay" class="animate-float w-11 h-11 lg:w-12 lg:h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-400 text-white flex items-center justify-center text-2xl lg:text-3xl shadow-xs shrink-0">
+              🐶
+            </span>
+            <div class="min-w-0">
+              <h1 id="classTitleDisplay" class="text-xl lg:text-2xl xl:text-[28px] font-black text-amber-950 tracking-wide truncate leading-tight">
+                🐾 我們的 503 🐾
+              </h1>
+              <p id="rocDateDisplay" class="text-sm lg:text-base font-black text-amber-800 truncate mt-0.5">
+                民國115年11月22日 星期日
+              </p>
+            </div>
+          </div>
+
+          <!-- 即時電子鐘膠囊（特大清晰字級） -->
+          <div class="bg-white/95 border-2 border-amber-200 px-3.5 py-2 rounded-2xl shadow-2xs shrink-0 text-right flex items-center justify-center">
+            <span id="clockDisplay" class="mono-num text-2xl lg:text-3xl xl:text-[38px] font-extrabold text-orange-600 leading-none block">07:45:00</span>
+          </div>
+        </div>
+
+        <!-- 第二層：「📜 503 班級公約與溫馨提醒」超大字體小黑板卡片 -->
+        <div class="flex-1 min-h-0 mt-2 rules-note-paper rounded-2xl border-2 border-rose-300/90 px-3.5 py-2 flex flex-col shadow-xs relative overflow-hidden">
+          <div class="flex items-center justify-between gap-2 mb-1 pb-1 border-b border-rose-200/80 shrink-0">
+            <span id="reminderTitleDisplay" class="inline-flex items-center gap-1.5 bg-gradient-to-r from-rose-500 to-orange-400 text-white text-sm lg:text-base font-black px-3.5 py-0.5 rounded-full shadow-2xs">
+              📜 503 班級公約與溫馨提醒
+            </span>
+          </div>
+          <div id="warmReminderDisplay" class="flex-1 min-h-0 text-[25px] lg:text-[28px] xl:text-[31px] font-black text-stone-800 overflow-y-auto custom-scroll whitespace-pre-wrap select-text pr-1">
+            1. 進教室先交作業、安靜閱讀課外書。
+2. 走廊不奔跑、說話輕聲有禮貌。
+3. 尊重同學、愛護公物，天天開心學習！✨
+          </div>
+        </div>
+      </section>
+
+      <!-- 【左下區域（佔左側高度 60%）】：寬敞好點擊的「純座號自主簽到區」 -->
+      <section id="bottomLeftCard" class="cute-card bg-white/75 border-2 border-emerald-200/85 flex flex-col overflow-hidden">
+        <!-- 頂部：已到徽章 ＋ 單行不擠壓的紅色「未到座號」膠囊列 -->
+        <div id="absentHeaderBar" class="bg-emerald-50/80 border-b border-emerald-200/80 px-3 py-1.5 flex flex-col gap-1 shrink-0">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5">
+              <span class="text-lg">🌱</span>
+              <span class="text-sm lg:text-base font-black text-emerald-950">晨間座號簽到</span>
+            </div>
+            <span class="bg-white border border-emerald-200 px-2.5 py-0.5 rounded-full text-xs lg:text-sm font-black text-emerald-800 shadow-2xs">
+              已到 <span id="presentCount" class="mono-num text-emerald-600 text-sm lg:text-base">0</span> / <span id="totalCount" class="mono-num text-sm lg:text-base">28</span> 人
+            </span>
+          </div>
+
+          <!-- 尚未簽到座號單行橫向滑動膠囊列（固定單行高度，絕不往下擠壓簽到格子） -->
+          <div class="flex items-center gap-1.5 h-7 overflow-hidden">
+            <span id="absentBadgeLabel" class="bg-rose-500 text-white text-xs font-black px-2 py-0.5 rounded-full shrink-0">
+              未到
+            </span>
+            <div id="absentPillsContainer" class="flex items-center gap-1 overflow-x-auto custom-scroll whitespace-nowrap py-0.5 flex-1 min-w-0">
+              <!-- 動態生成紅色未到座號小膠囊 -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 中間：7 欄 × 4 列寬敞純座號方塊網格（完美適應寬螢幕，28 個座號完整無缺不被吃掉） -->
+        <div id="seatGrid" class="flex-1 min-h-0 p-2 grid gap-1.5 bg-gradient-to-b from-white/40 to-emerald-50/30 overflow-hidden">
+          <!-- 動態生成可愛座號按鈕 -->
+        </div>
+
+        <!-- 底部：簽到操作列 -->
+        <div class="bg-emerald-50/75 border-t border-emerald-100/80 px-3 py-1 flex items-center justify-between gap-1.5 shrink-0">
+          <span class="text-xs font-bold text-emerald-800/85 truncate">👆 點擊座號簽到（無姓名隱私保護）</span>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <button type="button" id="btnExportCsv" class="bg-white hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-black px-2.5 py-0.5 rounded-xl transition cursor-pointer">
+              📥 匯出
+            </button>
+            <button type="button" id="btnResetToday" class="bg-white hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs font-black px-2.5 py-0.5 rounded-xl transition cursor-pointer">
+              🔄 重置
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ==================== 右側欄（寬度 53%，佔滿整個右側 100% 高度）：純一體直式聯絡簿 ==================== -->
+    <section id="rightColumn" class="cute-card bg-white/75 border-2 border-sky-200/85 flex flex-col overflow-hidden">
+      <!-- 頂部可愛工具控制列（雲端狀態、直/橫排切換、字級切換、🔑 老師編輯） -->
+      <header class="bg-gradient-to-r from-sky-100/80 via-indigo-50/70 to-amber-50/80 border-b border-sky-200/80 px-3.5 py-2 flex flex-wrap items-center justify-between gap-2 shrink-0">
+        <!-- 左側聯絡簿小標 -->
+        <div class="flex items-center gap-2">
+          <span class="w-7 h-7 rounded-xl bg-sky-500 text-white flex items-center justify-center text-sm shadow-2xs">📒</span>
+          <span class="text-sm lg:text-base font-black text-sky-950 tracking-wide">今日聯絡簿</span>
+          <span id="lastUpdateBadge" class="hidden sm:inline-block bg-white/80 text-sky-700 border border-sky-200/80 text-[11px] font-bold px-2 py-0.5 rounded-full">
+            已就緒
+          </span>
+        </div>
+
+        <!-- 右側功能按鈕群 -->
+        <div class="flex items-center gap-1.5">
+          <!-- 雲端連線燈號 -->
+          <button type="button" id="btnSyncBadge" title="點擊設定手機雲端同步" class="inline-flex items-center gap-1.5 bg-white/90 hover:bg-white text-stone-700 border border-sky-200 px-2.5 py-1.5 rounded-2xl text-xs font-black shadow-2xs transition cursor-pointer">
+            <span id="syncDot" class="w-2.5 h-2.5 rounded-full bg-amber-400 shrink-0"></span>
+            <span id="syncText" class="hidden sm:inline">本機儲存</span>
+          </button>
+
+          <!-- 直排 / 橫排切換 -->
+          <button type="button" id="btnToggleDirection" class="inline-flex items-center gap-1 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 px-2.5 py-1.5 rounded-2xl text-xs font-black shadow-2xs transition cursor-pointer">
+            <span id="directionLabel">直排 ↕</span>
+          </button>
+
+          <!-- 字體大小無段快捷微調（20px ~ 100px） -->
+          <div class="inline-flex items-center bg-sky-600 text-white rounded-2xl shadow-2xs overflow-hidden border border-sky-700/40">
+            <button type="button" id="btnFontDec" title="縮小字體 (-2px)" class="px-2 py-1.5 hover:bg-sky-700 active:bg-sky-800 text-xs font-black transition cursor-pointer">A-</button>
+            <span id="fontLabel" class="mono-num px-1.5 text-xs font-extrabold select-none">38px</span>
+            <button type="button" id="btnFontInc" title="放大字體 (+2px)" class="px-2 py-1.5 hover:bg-sky-700 active:bg-sky-800 text-xs font-black transition cursor-pointer">A+</button>
+          </div>
+
+          <!-- 🔑 老師編輯按鈕（密碼預設 503） -->
+          <button type="button" id="btnOpenTeacher" class="inline-flex items-center gap-1 bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-white px-3 py-1.5 rounded-2xl text-xs lg:text-sm font-black shadow-xs transition cursor-pointer">
+            <span>🔑 老師編輯</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- 單一整片、完全不分欄的純直式可愛宣紙聯絡簿畫布（緊靠右側從右上角起寫＋兩位數縱中橫同一格） -->
+      <div id="notebookCanvas" class="notebook-canvas writing-vertical custom-scroll flex-1 min-h-0 p-5 lg:p-7 select-text" style="font-size: 38px;">
+        <div id="notebookContentInner" class="whitespace-pre-wrap">
+          <!-- 動態渲染直排聯絡簿文字 -->
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ==================== 彈窗 1：取消單一座號簽到確認 ==================== -->
+  <div id="modalCancelSeat" class="fixed inset-0 bg-stone-900/50 backdrop-blur-xs hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border-2 border-amber-200 text-center">
+      <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-3 text-2xl">🐻</div>
+      <h3 class="text-lg font-black text-stone-800">要取消這個座號的簽到嗎？</h3>
+      <p id="cancelSeatDesc" class="text-base font-black text-orange-600 mt-2">01號（已於 07:35 簽到）</p>
+      <div class="grid grid-cols-2 gap-2.5 mt-5">
+        <button type="button" id="btnKeepSeat" class="py-2.5 rounded-2xl font-black text-stone-700 bg-stone-100 hover:bg-stone-200 transition cursor-pointer">保留簽到</button>
+        <button type="button" id="btnConfirmCancelSeat" class="py-2.5 rounded-2xl font-black text-white bg-rose-500 hover:bg-rose-600 transition cursor-pointer">取消簽到</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 彈窗 2：重置今日全班簽到確認 ==================== -->
+  <div id="modalResetToday" class="fixed inset-0 bg-stone-900/50 backdrop-blur-xs hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border-2 border-rose-200 text-center">
+      <div class="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-3 text-2xl">🌈</div>
+      <h3 class="text-lg font-black text-stone-800">確定要重置今日全班簽到嗎？</h3>
+      <p class="text-xs font-bold text-stone-500 mt-2">所有座號將恢復為「未簽到」狀態，右側直式聯絡簿與溫馨提醒都會完整保留喔！</p>
+      <div class="grid grid-cols-2 gap-2.5 mt-5">
+        <button type="button" id="btnAbortReset" class="py-2.5 rounded-2xl font-black text-stone-700 bg-stone-100 hover:bg-stone-200 transition cursor-pointer">先不要</button>
+        <button type="button" id="btnConfirmReset" class="py-2.5 rounded-2xl font-black text-white bg-rose-500 hover:bg-rose-600 transition cursor-pointer">確定重置</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 彈窗 3：老師密碼驗證視窗（預設密碼 503） ==================== -->
+  <div id="modalPassword" class="fixed inset-0 bg-stone-900/50 backdrop-blur-xs hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border-2 border-amber-200">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-lg font-black text-stone-800">🔑 503 老師身分驗證</h3>
+        <button type="button" id="btnClosePassword" class="text-stone-400 hover:text-stone-600 text-xl font-black px-2 cursor-pointer">✕</button>
+      </div>
+      <p class="text-xs font-bold text-stone-500 mb-3">請輸入老師編輯密碼（預設密碼：<strong class="text-rose-600">503</strong>）</p>
+      <input type="password" id="inputAdminPassword" inputmode="numeric" placeholder="請輸入密碼..." class="w-full rounded-2xl border-2 border-amber-200 bg-amber-50/40 px-4 py-3 text-center text-xl font-black tracking-widest focus:border-orange-400 focus:bg-white focus:outline-none" />
+      <p id="passwordErrorMsg" class="text-xs font-black text-rose-500 mt-2 hidden">密碼不正確，請再試一次喔！</p>
+      <button type="button" id="btnVerifyPassword" class="w-full mt-4 py-3 rounded-2xl bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-white font-black text-base shadow-sm transition cursor-pointer">
+        進入編輯小幫手 ✨
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== 彈窗 4：老師編輯與手機雲端同步面板 ==================== -->
+  <div id="modalTeacherPanel" class="fixed inset-0 bg-stone-900/60 backdrop-blur-xs hidden items-center justify-center p-2 sm:p-4 z-50">
+    <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[94vh] flex flex-col shadow-2xl border-2 border-amber-200 overflow-hidden">
+
+      <!-- 頂部可愛標題列 -->
+      <div class="bg-gradient-to-r from-orange-400 via-rose-400 to-amber-400 text-white px-5 py-3.5 flex items-center justify-between shrink-0">
+        <div>
+          <h2 class="text-lg font-black">🐶 503 老師編輯小幫手</h2>
+          <p class="text-xs text-amber-50 font-bold">在家用手機編輯聯絡簿與溫馨提醒，學校電腦開機自動同步！</p>
+        </div>
+        <button type="button" id="btnCloseTeacherPanel" class="bg-white/20 hover:bg-white/30 text-white rounded-2xl px-3 py-1.5 text-sm font-black transition cursor-pointer">
+          關閉 ✕
+        </button>
+      </div>
+
+      <!-- 三大分頁按鈕 -->
+      <div class="bg-amber-50/90 px-3 pt-2.5 flex gap-1.5 border-b border-amber-200 shrink-0 overflow-x-auto">
+        <button type="button" data-tab="notebook" class="teacher-tab-btn px-4 py-2 rounded-t-2xl text-xs sm:text-sm font-black bg-white text-orange-600 border-t-2 border-x-2 border-amber-200 cursor-pointer whitespace-nowrap">
+          ✏️ 編輯聯絡簿與提醒
+        </button>
+        <button type="button" data-tab="class" class="teacher-tab-btn px-4 py-2 rounded-t-2xl text-xs sm:text-sm font-bold text-stone-600 hover:text-stone-900 cursor-pointer whitespace-nowrap">
+          🔢 班級人數與密碼
+        </button>
+        <button type="button" data-tab="cloud" class="teacher-tab-btn px-4 py-2 rounded-t-2xl text-xs sm:text-sm font-bold text-stone-600 hover:text-stone-900 cursor-pointer whitespace-nowrap">
+          ☁️ 手機雲端同步
+        </button>
+      </div>
+
+      <!-- 分頁捲動內容區 -->
+      <div class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 custom-scroll">
+
+        <!-- ==================== 分頁 1：編輯聯絡簿（含智慧下一個編號＋可記憶作業類別） ==================== -->
+        <div id="panelTabNotebook" class="space-y-4">
+
+          <!-- ① 智慧號碼遞增工具列（「➕ 下一個」自動換行並插入下一號） -->
+          <div class="bg-amber-50/90 border-2 border-amber-200 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <button type="button" id="btnInsertNextNumber" class="inline-flex items-center gap-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 active:scale-95 text-white font-black text-sm sm:text-base px-4 py-2 rounded-2xl shadow-sm transition cursor-pointer">
+                <span>➕ 下一個（目前：<span id="nextNumberPreview" class="mono-num">1.</span>）</span>
+              </button>
+              <button type="button" id="btnResetNumberCounter" title="將下一個編號重設回 1." class="bg-white hover:bg-amber-100 text-amber-800 border border-amber-300 font-black text-xs px-2.5 py-2 rounded-xl transition cursor-pointer">
+                🔄 重設為 1.
+              </button>
+            </div>
+            <span class="text-xs font-bold text-amber-800">💡 點擊自動換行並接續編號！</span>
+          </div>
+
+          <!-- ② 可記憶的「作業類別」快捷標籤列（預設：國習、國重、數習、數重、社作、社習 + 自訂新增/刪除） -->
+          <div class="bg-sky-50/80 border-2 border-sky-200 rounded-2xl p-3 space-y-2.5">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-xs font-black text-sky-900">📚 作業類別快捷插入（點擊直接輸入，點右上 × 可刪除）：</span>
+              <button type="button" id="btnRestoreDefaultSubjects" class="text-[11px] font-bold text-sky-700 hover:underline cursor-pointer">
+                恢復預設6項
+              </button>
+            </div>
+
+            <!-- 作業類別按鈕容器 -->
+            <div id="subjectChipsContainer" class="flex flex-wrap gap-2">
+              <!-- 動態生成作業類別按鈕（國習、國重、數習、數重、社作、社習...） -->
+            </div>
+
+            <!-- 新增自訂作業類別輸入列 -->
+            <div class="flex items-center gap-2 pt-1">
+              <input type="text" id="inputNewSubject" maxlength="10" placeholder="輸入新作業類別（如：英習、作文）..." class="flex-1 rounded-xl border border-sky-300 bg-white px-3 py-1.5 text-xs sm:text-sm font-bold text-stone-800 focus:border-sky-500 focus:outline-none" />
+              <button type="button" id="btnAddSubject" class="bg-sky-600 hover:bg-sky-700 text-white font-black text-xs sm:text-sm px-3.5 py-1.5 rounded-xl shadow-2xs transition cursor-pointer shrink-0">
+                ＋ 新增選項
+              </button>
+            </div>
+          </div>
+
+          <!-- ③ 聯絡簿內容大文字框 -->
+          <div>
+            <label class="block text-xs font-black text-stone-700 mb-1">📒 今日聯絡簿內容（純直式畫布顯示，每行一項）：</label>
+            <textarea id="editNotebookText" rows="6" class="w-full rounded-2xl border-2 border-amber-300 bg-amber-50/30 p-3.5 text-lg font-bold text-stone-900 leading-relaxed focus:border-orange-400 focus:bg-white focus:outline-none" placeholder="請輸入聯絡簿內容，例如：&#10;1.國習 第八課&#10;2.數重 第12回..."></textarea>
+          </div>
+
+          <!-- ④ 左上角「📜 503 班級公約與溫馨提醒」標題與大字體內容編輯框 -->
+          <div class="bg-rose-50/50 border-2 border-rose-200 rounded-2xl p-3 space-y-2">
+            <div>
+              <label class="block text-xs font-black text-rose-700 mb-1">🏷️ 左上看板標題（可自訂為班級公約或溫馨提醒）：</label>
+              <input type="text" id="editReminderTitle" class="w-full rounded-xl border border-rose-200 bg-white px-3 py-1.5 text-sm font-black text-rose-800 focus:border-rose-400 focus:outline-none" placeholder="📜 503 班級公約與溫馨提醒" />
+            </div>
+            <div>
+              <label class="block text-xs font-black text-rose-700 mb-1">📜 班規與溫馨提醒內容（教室左側大字體醒目顯示）：</label>
+              <textarea id="editWarmReminder" rows="3" class="w-full rounded-xl border border-rose-200 bg-white p-2.5 text-base font-bold text-stone-800 leading-relaxed focus:border-rose-400 focus:outline-none" placeholder="輸入給 503 寶貝們的班規與晨間小叮嚀..."></textarea>
+            </div>
+          </div>
+
+          <!-- ⑤ 書寫方向與字級快速設定（20px ~ 100px 自由微調） -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 bg-stone-50 p-3 rounded-2xl border border-stone-200">
+            <div>
+              <label class="block text-xs font-black text-stone-600 mb-1">📐 聯絡簿書寫方向</label>
+              <select id="selectWritingMode" class="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs sm:text-sm font-bold text-stone-800">
+                <option value="vertical">正統直排（由上而下、由右至左 ↕）</option>
+                <option value="horizontal">單欄橫排（由左至右、由上而下 ↔）</option>
+              </select>
+            </div>
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="block text-xs font-black text-stone-600">🔍 教室投影字體大小（20～100px）</label>
+                <span id="rangeFontSizePreview" class="mono-num text-xs font-black text-sky-700 bg-sky-100 px-2 py-0.5 rounded-lg">38px</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="range" id="rangeFontSize" min="20" max="100" step="1" value="38" class="flex-1 accent-sky-600 cursor-pointer" />
+                <input type="number" id="inputFontSize" min="20" max="100" value="38" class="mono-num w-16 rounded-xl border border-stone-300 bg-white px-2 py-1 text-center text-xs sm:text-sm font-black text-stone-800 focus:border-sky-500 focus:outline-none" />
+              </div>
+            </div>
+          </div>
+
+          <!-- 儲存與複製操作按鈕 -->
+          <div class="flex flex-col sm:flex-row gap-2 pt-1">
+            <button type="button" id="btnCopyParentsText" class="flex-1 py-3 rounded-2xl bg-stone-100 hover:bg-stone-200 text-stone-800 font-black text-sm transition cursor-pointer">
+              📋 複製聯絡簿（貼給家長群組）
+            </button>
+            <button type="button" id="btnSaveNotebook" class="flex-1 py-3 rounded-2xl bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-white font-black text-base shadow-md transition cursor-pointer">
+              ☁️ 儲存並同步發布
+            </button>
+          </div>
+        </div>
+
+        <!-- ==================== 分頁 2：班級人數與密碼設定 ==================== -->
+        <div id="panelTabClass" class="hidden space-y-4">
+          <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 text-xs font-bold text-emerald-900">
+            🛡️ 隱私保護模式：左下角簽到區僅顯示可愛兩位數座號（01～28），絕不顯示學生姓名。
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-black text-stone-700 mb-1">🐾 左上角班級看板標題</label>
+              <input type="text" id="editClassTitle" class="w-full rounded-xl border border-stone-300 px-3 py-2.5 text-sm font-bold text-stone-800 focus:border-orange-400 focus:outline-none" />
+            </div>
+            <div>
+              <label class="block text-xs font-black text-stone-700 mb-1">🎨 班級圖標（可輸入 Emoji 或字）</label>
+              <input type="text" id="editClassIcon" maxlength="4" placeholder="🐶" class="w-full rounded-xl border border-stone-300 px-3 py-2 text-center text-xl font-black text-stone-800 focus:border-orange-400 focus:outline-none" />
+            </div>
+          </div>
+
+          <!-- 可愛班級圖標一鍵快捷選單 -->
+          <div class="bg-amber-50/80 border border-amber-200 rounded-2xl p-3">
+            <span class="block text-xs font-black text-amber-900 mb-2">✨ 點選可愛班級吉祥物圖標（或直接在上方輸入框自訂）：</span>
+            <div id="iconPresetContainer" class="flex flex-wrap gap-1.5">
+              <!-- 動態生成 16 款可愛圖標按鈕 -->
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-black text-stone-700 mb-1">🔢 全班座號總人數（1 ～ 42 人）</label>
+              <input type="number" id="editTotalSeats" min="1" max="42" class="w-full rounded-xl border border-stone-300 px-3 py-2.5 text-base font-black text-stone-800 focus:border-orange-400 focus:outline-none" />
+            </div>
+            <div>
+              <label class="block text-xs font-black text-stone-700 mb-1">🔑 老師編輯密碼</label>
+              <input type="text" id="editAdminPassword" class="w-full rounded-xl border border-stone-300 px-3 py-2.5 text-base font-black text-stone-800 focus:border-orange-400 focus:outline-none" />
+            </div>
+          </div>
+
+          <!-- ==================== 自訂教室背景主題與高透明度圖片設定 ==================== -->
+          <div class="bg-purple-50/80 border-2 border-purple-200 rounded-2xl p-3.5 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs sm:text-sm font-black text-purple-950">🖼️ 自訂教室背景與高透明度效果</span>
+              <button type="button" id="btnClearBgImage" class="text-xs font-black text-rose-600 hover:underline cursor-pointer">
+                清除背景圖片
+              </button>
+            </div>
+
+            <!-- 6 款馬卡龍柔和底色一鍵切換 -->
+            <div>
+              <span class="block text-xs font-bold text-purple-900 mb-1.5">🎨 選擇柔和底色主題：</span>
+              <div id="bgThemeContainer" class="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                <!-- 動態生成 6 款底色主題按鈕 -->
+              </div>
+            </div>
+
+            <!-- 自訂背景圖片（支援貼上網址或從電腦選擇照片） -->
+            <div class="space-y-1.5">
+              <label class="block text-xs font-bold text-purple-900">📷 自訂背景圖片（貼上圖片網址，或從電腦/手機選取照片）：</label>
+              <div class="flex flex-col sm:flex-row gap-2">
+                <input type="text" id="editBgImageUrl" placeholder="貼上圖片網址 https://... 或點擊右側選取照片" class="flex-1 rounded-xl border border-purple-300 bg-white px-3 py-2 text-xs font-bold text-stone-800 focus:border-purple-500 focus:outline-none" />
+                <label class="inline-flex items-center justify-center bg-purple-600 hover:bg-purple-700 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-2xs transition cursor-pointer shrink-0">
+                  <span>📁 選擇照片</span>
+                  <input type="file" id="inputBgImageFile" accept="image/*" class="hidden" />
+                </label>
+              </div>
+            </div>
+
+            <!-- 背景透明度與卡片通透度滑桿 -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="text-xs font-bold text-purple-900">🌫️ 背景圖片透明度</label>
+                  <span id="bgOpacityLabel" class="mono-num text-xs font-black text-purple-700 bg-white px-2 py-0.5 rounded-lg border border-purple-200">35%</span>
+                </div>
+                <input type="range" id="rangeBgOpacity" min="5" max="100" step="5" value="35" class="w-full accent-purple-600 cursor-pointer" />
+              </div>
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="text-xs font-bold text-purple-900">🪟 卡片玻璃通透度</label>
+                  <span id="cardAlphaLabel" class="mono-num text-xs font-black text-purple-700 bg-white px-2 py-0.5 rounded-lg border border-purple-200">72%</span>
+                </div>
+                <input type="range" id="rangeCardAlpha" min="35" max="98" step="3" value="72" class="w-full accent-purple-600 cursor-pointer" />
+              </div>
+            </div>
+          </div>
+
+          <button type="button" id="btnSaveClassSettings" class="w-full py-3 rounded-2xl bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-white font-black text-base shadow-md transition cursor-pointer">
+            💾 儲存班級與背景設定
+          </button>
+        </div>
+
+        <!-- ==================== 分頁 3：手機雲端同步設定 ==================== -->
+        <div id="panelTabCloud" class="hidden space-y-4">
+          <div class="bg-sky-50 border border-sky-200 rounded-2xl p-4 text-xs text-sky-950 space-y-2 leading-relaxed">
+            <p class="font-black text-sm text-sky-800">📱 3 步驟設定：在家用手機改聯絡簿，學校電腦開機自動更新！</p>
+            <ol class="list-decimal list-inside space-y-1.5 font-bold">
+              <li>
+                前往 <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer" class="underline font-black text-sky-700">Firebase Console</a> 建立免費專案，進入左側「Build → <strong>Realtime Database</strong>」建立資料庫（規則選「測試模式」）。
+              </li>
+              <li>
+                複製畫面上方的資料庫網址（例如 <code class="bg-white px-1.5 py-0.5 rounded border border-sky-200">https://xxx-default-rtdb.firebaseio.com</code>），貼入下方第一欄。
+              </li>
+              <li>
+                在手機與教室電腦輸入相同的「班級同步密鑰（如 <code class="bg-white px-1 rounded">class503</code>）」並儲存，手機按發布後即刻同步至雲端。
+              </li>
+            </ol>
+          </div>
+
+          <div>
+            <label class="block text-xs font-black text-stone-700 mb-1">🌐 Firebase Realtime Database URL（留空則僅使用本機儲存）</label>
+            <input type="url" id="editFirebaseUrl" placeholder="https://your-project-default-rtdb.firebaseio.com" class="w-full rounded-xl border border-stone-300 px-3 py-2.5 text-sm font-mono text-stone-800 focus:border-sky-500 focus:outline-none" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-black text-stone-700 mb-1">🔐 班級同步路徑密鑰</label>
+            <input type="text" id="editSyncRoomKey" placeholder="class503" class="w-full rounded-xl border border-stone-300 px-3 py-2.5 text-sm font-mono text-stone-800 focus:border-sky-500 focus:outline-none" />
+          </div>
+
+          <div id="cloudTestResult" class="hidden rounded-xl p-3 text-xs font-black"></div>
+
+          <button type="button" id="btnTestAndSaveCloud" class="w-full py-3 rounded-2xl bg-sky-600 hover:bg-sky-700 text-white font-black text-base shadow-md transition cursor-pointer">
+            📡 測試連線並同步
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 輕量級浮動訊息提示條（取代 alert） ==================== -->
+  <div id="toastBanner" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-stone-900/95 text-white px-4 py-2.5 rounded-2xl shadow-xl text-sm font-black flex items-center gap-2 opacity-0 pointer-events-none transition-all duration-200 z-50">
+    <span id="toastIcon">✨</span>
+    <span id="toastMessage">操作成功</span>
+  </div>
+
+  <!-- ==================== 純原生 JavaScript 核心邏輯 ==================== -->
+  <script>
+    (function () {
+      "use strict";
+
+      const DATA_STORAGE_KEY = "our_503_cute_classroom_v1";
+      const CLOUD_STORAGE_KEY = "our_503_cloud_config_v1";
+
+      const DEFAULT_SUBJECTS = ["國習", "國重", "數習", "數重", "社作", "社習"];
+      const PRESET_CLASS_ICONS = ["🐶", "🐱", "🐻", "🐰", "🦁", "🐼", "🦊", "🐯", "🐸", "🐧", "🦄", "🦖", "🚀", "🌻", "🌈", "⭐"];
+      const BG_THEMES = [
+        { id: "cream", name: "奶油暖陽", color: "#fff8eb" },
+        { id: "mint", name: "薄荷森林", color: "#ecfdf5" },
+        { id: "sky", name: "晴空雲朵", color: "#f0f9ff" },
+        { id: "sakura", name: "櫻花粉彩", color: "#fff1f2" },
+        { id: "lavender", name: "薰衣草紫", color: "#faf5ff" },
+        { id: "paper", name: "護眼米灰", color: "#f5f5f4" }
+      ];
+
+      const DEFAULT_NOTEBOOK_TEXT = [
+        "1.國習 第八課",
+        "2.數重 第12回",
+        "3.社作 第18～19頁",
+        "4.明日考國語第七課聽寫",
+        "5.帶直笛、彩色筆"
+      ].join("\n");
+
+      const DEFAULT_REMINDER_TITLE = "📜 503 班級公約與溫馨提醒";
+
+      const DEFAULT_REMINDER = [
+        "1. 進教室先交作業、安靜閱讀課外書。",
+        "2. 走廊不奔跑、說話輕聲有禮貌。",
+        "3. 尊重同學、愛護公物，天天開心學習！✨"
+      ].join("\n");
+
+      let state = {
+        classIcon: "🐶",
+        classTitle: "🐾 我們的 503 🐾",
+        adminPassword: "503",
+        totalSeats: 28,
+        writingMode: "vertical",
+        fontSize: 38,
+        bgTheme: "cream",
+        bgImageUrl: "",
+        bgOpacity: 35,
+        cardAlpha: 72,
+        reminderTitle: DEFAULT_REMINDER_TITLE,
+        warmReminder: DEFAULT_REMINDER,
+        subjects: [...DEFAULT_SUBJECTS],
+        attendanceDate: getTodayDateStr(),
+        attendance: {},
+        notebookText: DEFAULT_NOTEBOOK_TEXT,
+        updatedAt: Date.now()
+      };
+
+      let cloudConfig = {
+        firebaseUrl: "",
+        roomKey: "class503"
+      };
+
+      let pendingCancelSeatNum = null;
+      let pollTimer = null;
+      let toastTimer = null;
+      let manualResetNumberFlag = false;
+
+      // ==================== 日期與時間工具 ====================
+      function getTodayDateStr() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, "0");
+        const d = String(now.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+      }
+
+      function getNowHHMM() {
+        const now = new Date();
+        return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+      }
+
+      function formatSeatTwoDigits(num) {
+        return String(num).padStart(2, "0");
+      }
+
+      function showToast(icon, msg) {
+        try {
+          const banner = document.getElementById("toastBanner");
+          document.getElementById("toastIcon").textContent = icon;
+          document.getElementById("toastMessage").textContent = msg;
+          banner.classList.remove("opacity-0", "pointer-events-none");
+          banner.classList.add("opacity-100");
+          if (toastTimer) clearTimeout(toastTimer);
+          toastTimer = setTimeout(() => {
+            banner.classList.remove("opacity-100");
+            banner.classList.add("opacity-0", "pointer-events-none");
+          }, 2400);
+        } catch (err) {
+          console.error("提示異常:", err);
+        }
+      }
+
+      function tickClock() {
+        try {
+          const now = new Date();
+          const rocYear = now.getFullYear() - 1911;
+          const weeks = ["日", "一", "二", "三", "四", "五", "六"];
+          const rocStr = `民國${rocYear}年${now.getMonth() + 1}月${now.getDate()}日 星期${weeks[now.getDay()]}`;
+          const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+
+          document.getElementById("rocDateDisplay").textContent = rocStr;
+          document.getElementById("clockDisplay").textContent = timeStr;
+
+          const today = getTodayDateStr();
+          if (state.attendanceDate !== today) {
+            state.attendanceDate = today;
+            state.attendance = {};
+            saveLocalState();
+            renderAll();
+          }
+        } catch (err) {
+          console.error("時鐘更新異常:", err);
+        }
+      }
+
+      // ==================== 本機儲存讀寫 ====================
+      function loadLocalState() {
+        try {
+          const raw = localStorage.getItem(DATA_STORAGE_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === "object") {
+              state = Object.assign({}, state, parsed);
+              if (!Array.isArray(state.subjects)) {
+                state.subjects = [...DEFAULT_SUBJECTS];
+              }
+            }
+          }
+          const today = getTodayDateStr();
+          if (state.attendanceDate !== today) {
+            state.attendanceDate = today;
+            state.attendance = {};
+          }
+          const rawCloud = localStorage.getItem(CLOUD_STORAGE_KEY);
+          if (rawCloud) {
+            const parsedCloud = JSON.parse(rawCloud);
+            if (parsedCloud && typeof parsedCloud === "object") {
+              cloudConfig = Object.assign({}, cloudConfig, parsedCloud);
+            }
+          }
+        } catch (err) {
+          console.error("讀取本機資料失敗:", err);
+        }
+      }
+
+      function saveLocalState() {
+        try {
+          localStorage.setItem(DATA_STORAGE_KEY, JSON.stringify(state));
+        } catch (err) {
+          console.error("儲存本機資料失敗:", err);
+        }
+      }
+
+      function saveCloudConfig() {
+        try {
+          localStorage.setItem(CLOUD_STORAGE_KEY, JSON.stringify(cloudConfig));
+        } catch (err) {
+          console.error("儲存雲端設定失敗:", err);
+        }
+      }
+
+      // ==================== Firebase Realtime Database REST API 同步 ====================
+      function getFirebaseEndpoint() {
+        const base = (cloudConfig.firebaseUrl || "").trim().replace(/\/+$/, "");
+        const key = (cloudConfig.roomKey || "class503").trim().replace(/[^a-zA-Z0-9_-]/g, "_");
+        if (!base) return "";
+        return `${base}/our_503_classroom/${key}.json`;
+      }
+
+      function setSyncStatus(mode) {
+        const dot = document.getElementById("syncDot");
+        const text = document.getElementById("syncText");
+        if (!dot || !text) return;
+
+        if (mode === "connected") {
+          dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0";
+          text.textContent = "雲端同步中";
+        } else if (mode === "syncing") {
+          dot.className = "w-2.5 h-2.5 rounded-full bg-sky-500 animate-pulse shrink-0";
+          text.textContent = "同步中...";
+        } else if (mode === "error") {
+          dot.className = "w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0";
+          text.textContent = "離線本機";
+        } else {
+          dot.className = "w-2.5 h-2.5 rounded-full bg-amber-400 shrink-0";
+          text.textContent = "本機儲存";
+        }
+      }
+
+      async function pushToCloud() {
+        const url = getFirebaseEndpoint();
+        if (!url) {
+          setSyncStatus("local");
+          return false;
+        }
+        try {
+          setSyncStatus("syncing");
+          const res = await fetch(url, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(state)
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          setSyncStatus("connected");
+          return true;
+        } catch (err) {
+          console.error("雲端寫入失敗:", err);
+          setSyncStatus("error");
+          return false;
+        }
+      }
+
+      async function pullFromCloud() {
+        const url = getFirebaseEndpoint();
+        if (!url) {
+          setSyncStatus("local");
+          return;
+        }
+        try {
+          const res = await fetch(url, { method: "GET", cache: "no-store" });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const remote = await res.json();
+          if (remote && typeof remote === "object") {
+            if ((remote.updatedAt || 0) > (state.updatedAt || 0)) {
+              const today = getTodayDateStr();
+              state = Object.assign({}, state, remote);
+              if (!Array.isArray(state.subjects)) state.subjects = [...DEFAULT_SUBJECTS];
+              if (state.attendanceDate !== today) {
+                state.attendanceDate = today;
+                state.attendance = {};
+              }
+              saveLocalState();
+              renderAll();
+            }
+          } else if (remote === null) {
+            await pushToCloud();
+          }
+          setSyncStatus("connected");
+        } catch (err) {
+          console.error("雲端讀取失敗:", err);
+          setSyncStatus("error");
+        }
+      }
+
+      function startCloudSyncLoop() {
+        if (pollTimer) clearInterval(pollTimer);
+        if (!getFirebaseEndpoint()) {
+          setSyncStatus("local");
+          return;
+        }
+        pullFromCloud();
+        pollTimer = setInterval(pullFromCloud, 5000);
+      }
+
+      // ==================== 主畫面三區渲染 ====================
+      function syncAdaptiveGridLines() {
+        try {
+          const rulesEl = document.getElementById("warmReminderDisplay");
+          if (rulesEl) {
+            const computedFontSize = parseFloat(window.getComputedStyle(rulesEl).fontSize) || 28;
+            const rowStep = Math.round(computedFontSize * 1.5 * 10) / 10;
+            const lineStart = Math.max(1, rowStep - 1.5);
+            rulesEl.style.backgroundImage = `repeating-linear-gradient(
+              to bottom,
+              transparent 0px,
+              transparent ${lineStart}px,
+              rgba(251, 113, 133, 0.22) ${lineStart}px,
+              rgba(251, 113, 133, 0.22) ${rowStep}px
+            )`;
+            rulesEl.style.backgroundAttachment = "local";
+          }
+
+          const nbCanvas = document.getElementById("notebookCanvas");
+          if (nbCanvas) {
+            const fSize = clampFontSize(state.fontSize);
+            const isVertical = state.writingMode !== "horizontal";
+            if (isVertical) {
+              const colWidth = Math.round(fSize * 2.0 * 10) / 10;
+              const charHeight = Math.round(fSize * 1.08 * 10) / 10;
+              nbCanvas.style.backgroundImage = `
+                linear-gradient(to left, rgba(245, 158, 11, 0.16) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(245, 158, 11, 0.10) 1px, transparent 1px)
+              `;
+              nbCanvas.style.backgroundSize = `${colWidth}px ${charHeight}px`;
+              nbCanvas.style.backgroundPosition = "right top";
+            } else {
+              const rowHeight = Math.round(fSize * 1.75 * 10) / 10;
+              const charWidth = Math.round(fSize * 1.08 * 10) / 10;
+              nbCanvas.style.backgroundImage = `
+                linear-gradient(to bottom, rgba(245, 158, 11, 0.16) 1px, transparent 1px),
+                linear-gradient(to right, rgba(245, 158, 11, 0.09) 1px, transparent 1px)
+              `;
+              nbCanvas.style.backgroundSize = `${charWidth}px ${rowHeight}px`;
+              nbCanvas.style.backgroundPosition = "left top";
+            }
+            nbCanvas.style.backgroundAttachment = "local";
+          }
+        } catch (err) {
+          console.error("同步動態格線異常:", err);
+        }
+      }
+
+      function applyBackgroundAndTransparency() {
+        try {
+          const themeObj = BG_THEMES.find((t) => t.id === state.bgTheme) || BG_THEMES[0];
+          document.body.style.backgroundColor = themeObj.color;
+
+          const bgLayer = document.getElementById("customBgLayer");
+          const imgUrl = (state.bgImageUrl || "").trim();
+          const bgOp = Math.max(5, Math.min(100, parseInt(state.bgOpacity, 10) || 35));
+          if (bgLayer) {
+            if (imgUrl) {
+              bgLayer.style.backgroundImage = `url("${imgUrl.replace(/"/g, '\\"')}")`;
+              bgLayer.style.opacity = String(bgOp / 100);
+            } else {
+              bgLayer.style.backgroundImage = "none";
+              bgLayer.style.opacity = "0";
+            }
+          }
+
+          const alphaPct = Math.max(35, Math.min(98, parseInt(state.cardAlpha, 10) || 72));
+          const a = (alphaPct / 100).toFixed(2);
+          const aStrong = Math.min(0.98, alphaPct / 100 + 0.06).toFixed(2);
+
+          const topCard = document.getElementById("topLeftCard");
+          const bottomCard = document.getElementById("bottomLeftCard");
+          const rightCard = document.getElementById("rightColumn");
+          const rulesPaper = document.querySelector(".rules-note-paper");
+          const nbCanvas = document.getElementById("notebookCanvas");
+
+          if (topCard) topCard.style.background = `rgba(255, 251, 235, ${a})`;
+          if (bottomCard) bottomCard.style.background = `rgba(255, 255, 255, ${a})`;
+          if (rightCard) rightCard.style.background = `rgba(255, 255, 255, ${a})`;
+          if (rulesPaper) rulesPaper.style.backgroundColor = `rgba(255, 253, 250, ${aStrong})`;
+          if (nbCanvas) nbCanvas.style.backgroundColor = `rgba(255, 254, 249, ${aStrong})`;
+
+          syncAdaptiveGridLines();
+        } catch (err) {
+          console.error("套用背景與透明度異常:", err);
+        }
+      }
+
+      function renderAll() {
+        try {
+          applyBackgroundAndTransparency();
+
+          document.getElementById("classIconDisplay").textContent = (state.classIcon || "").trim() || "🐶";
+          document.getElementById("classTitleDisplay").textContent = state.classTitle || "🐾 我們的 503 🐾";
+          document.getElementById("reminderTitleDisplay").textContent = (state.reminderTitle || "").trim() || DEFAULT_REMINDER_TITLE;
+          document.getElementById("warmReminderDisplay").textContent = (state.warmReminder || "").trim() || DEFAULT_REMINDER;
+
+          renderSeatCheckInBoard();
+          renderVerticalNotebook();
+        } catch (err) {
+          console.error("畫面渲染異常:", err);
+        }
+      }
+
+      function renderSeatCheckInBoard() {
+        const grid = document.getElementById("seatGrid");
+        const pillsBox = document.getElementById("absentPillsContainer");
+        const absentBadge = document.getElementById("absentBadgeLabel");
+
+        grid.innerHTML = "";
+        pillsBox.innerHTML = "";
+
+        const total = Math.max(1, Math.min(42, parseInt(state.totalSeats, 10) || 28));
+        const cols = total <= 28 ? 7 : Math.ceil(total / 5);
+        const rows = Math.max(1, Math.ceil(total / cols));
+
+        grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+        grid.style.gridTemplateRows = `repeat(${rows}, minmax(0, 1fr))`;
+
+        const today = getTodayDateStr();
+        const map = state.attendance || {};
+        let presentCount = 0;
+        const absentList = [];
+
+        for (let seat = 1; seat <= total; seat++) {
+          const key = String(seat);
+          const rec = map[key];
+          const isPresent = Boolean(rec && rec.date === today);
+          const seatLabel = formatSeatTwoDigits(seat);
+
+          if (isPresent) {
+            presentCount++;
+          } else {
+            absentList.push(seatLabel);
+          }
+
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.addEventListener("click", () => handleSeatClick(seat));
+
+          if (isPresent) {
+            btn.className = "animate-candy-bounce min-h-0 h-full w-full flex flex-col items-center justify-center rounded-2xl bg-gradient-to-b from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white border border-emerald-500 px-1 py-0.5 shadow-xs transition cursor-pointer overflow-hidden";
+            btn.innerHTML = `
+              <span class="mono-num text-xl xl:text-2xl font-extrabold leading-none tracking-tight">${seatLabel}</span>
+              <span class="mono-num text-[11px] xl:text-xs font-extrabold bg-emerald-800/45 text-white px-2 py-0.5 rounded-full mt-1 leading-none">✔${escapeHtml(rec.time)}</span>
+            `;
+          } else {
+            btn.className = "min-h-0 h-full w-full flex flex-col items-center justify-center rounded-2xl bg-white/80 hover:bg-amber-50/95 border-2 border-stone-200/85 hover:border-amber-300 active:scale-95 text-stone-700 px-1 py-0.5 shadow-2xs transition cursor-pointer overflow-hidden";
+            btn.innerHTML = `
+              <span class="mono-num text-xl xl:text-2xl font-extrabold text-stone-700 leading-none tracking-tight">${seatLabel}</span>
+              <span class="text-[11px] xl:text-xs font-bold text-stone-400 leading-none mt-1">點我簽到</span>
+            `;
+          }
+
+          grid.appendChild(btn);
+        }
+
+        document.getElementById("presentCount").textContent = presentCount;
+        document.getElementById("totalCount").textContent = total;
+
+        if (absentList.length === 0) {
+          absentBadge.className = "bg-emerald-500 text-white text-xs font-black px-2 py-0.5 rounded-full shrink-0";
+          absentBadge.textContent = "全到齊 🎉";
+          const okSpan = document.createElement("span");
+          okSpan.className = "text-xs lg:text-sm font-black text-emerald-700";
+          okSpan.textContent = "太棒了！503 全班都準時到校囉！";
+          pillsBox.appendChild(okSpan);
+        } else {
+          absentBadge.className = "bg-rose-500 text-white text-xs font-black px-2 py-0.5 rounded-full shrink-0";
+          absentBadge.textContent = `未到 (${absentList.length})`;
+          absentList.forEach((numStr) => {
+            const pill = document.createElement("span");
+            pill.className = "mono-num bg-rose-100 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-lg text-xs font-extrabold shrink-0";
+            pill.textContent = numStr;
+            pillsBox.appendChild(pill);
+          });
+        }
+      }
+
+      function clampFontSize(val) {
+        const n = parseInt(val, 10);
+        if (isNaN(n)) return 38;
+        return Math.max(20, Math.min(100, n));
+      }
+
+      function renderVerticalNotebook() {
+        const canvas = document.getElementById("notebookCanvas");
+        const inner = document.getElementById("notebookContentInner");
+        const isVertical = state.writingMode !== "horizontal";
+        const fontSize = clampFontSize(state.fontSize);
+        state.fontSize = fontSize;
+
+        document.getElementById("directionLabel").textContent = isVertical ? "直排 ↕" : "橫排 ↔";
+        document.getElementById("fontLabel").textContent = `${fontSize}px`;
+
+        canvas.className = `notebook-canvas ${isVertical ? "writing-vertical" : "writing-horizontal"} custom-scroll flex-1 min-h-0 p-5 lg:p-7 select-text`;
+        canvas.style.fontSize = `${fontSize}px`;
+
+        syncAdaptiveGridLines();
+
+        const content = (state.notebookText || "").trim();
+        if (!content) {
+          inner.textContent = "（今日尚無聯絡簿事項，請點右上角「🔑 老師編輯」輸入喔！）";
+        } else {
+          if (isVertical) {
+            // 逐行處理（按 Enter 換行即自然分開）：將「P.數字」或「數字+選填小數點」（1~3 位數）同格並排顯示，波浪符直立轉向
+            const formattedLines = content.split("\n").map((line) => {
+              const escapedLine = escapeHtml(line);
+              return escapedLine
+                .replace(/([Pp]\.\d{1,3}|\d{1,3}\.?)/g, (m) => `<span class="tcy-num">${m}</span>`)
+                .replace(/[～~]/g, (m) => `<span class="v-tilde">${m}</span>`);
+            });
+            inner.innerHTML = formattedLines.join("\n");
+          } else {
+            inner.textContent = content;
+          }
+        }
+
+        if (state.updatedAt) {
+          const d = new Date(state.updatedAt);
+          const hh = String(d.getHours()).padStart(2, "0");
+          const mm = String(d.getMinutes()).padStart(2, "0");
+          document.getElementById("lastUpdateBadge").textContent = `更新於 ${hh}:${mm}`;
+        }
+      }
+
+      // ==================== 簽到互動邏輯 ====================
+      function handleSeatClick(seatNum) {
+        try {
+          const today = getTodayDateStr();
+          const key = String(seatNum);
+          const existing = state.attendance[key];
+          const seatLabel = formatSeatTwoDigits(seatNum);
+
+          if (existing && existing.date === today) {
+            pendingCancelSeatNum = seatNum;
+            document.getElementById("cancelSeatDesc").textContent = `${seatLabel}號（已於 ${existing.time} 簽到）`;
+            openModal("modalCancelSeat");
+          } else {
+            const nowTime = getNowHHMM();
+            state.attendanceDate = today;
+            state.attendance[key] = { date: today, time: nowTime };
+            state.updatedAt = Date.now();
+            saveLocalState();
+            renderSeatCheckInBoard();
+            showToast("🌟", `${seatLabel}號 簽到成功（${nowTime}）`);
+            pushToCloud();
+          }
+        } catch (err) {
+          console.error("簽到點擊異常:", err);
+        }
+      }
+
+      function confirmCancelSeat() {
+        try {
+          if (pendingCancelSeatNum === null) return;
+          const key = String(pendingCancelSeatNum);
+          const seatLabel = formatSeatTwoDigits(pendingCancelSeatNum);
+          delete state.attendance[key];
+          state.updatedAt = Date.now();
+          saveLocalState();
+          renderSeatCheckInBoard();
+          showToast("↩️", `已取消 ${seatLabel}號 的簽到`);
+          pendingCancelSeatNum = null;
+          closeModal("modalCancelSeat");
+          pushToCloud();
+        } catch (err) {
+          console.error("取消簽到異常:", err);
+        }
+      }
+
+      // ==================== 匯出 CSV 與重置今日簽到 ====================
+      function exportAttendanceCsv() {
+        try {
+          const today = getTodayDateStr();
+          const total = Math.max(1, Math.min(42, parseInt(state.totalSeats, 10) || 28));
+          const rows = ["\uFEFF日期,座號,出席狀態,到校時間"];
+          for (let s = 1; s <= total; s++) {
+            const rec = state.attendance[String(s)];
+            const isPresent = Boolean(rec && rec.date === today);
+            rows.push(`${today},${formatSeatTwoDigits(s)},${isPresent ? "已到" : "未到"},${isPresent ? rec.time : "--:--"}`);
+          }
+          const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `503班_座號簽到表_${today}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          showToast("📥", `已匯出 ${today} 純座號簽到表`);
+        } catch (err) {
+          console.error("匯出 CSV 失敗:", err);
+        }
+      }
+
+      function confirmResetToday() {
+        state.attendance = {};
+        state.attendanceDate = getTodayDateStr();
+        state.updatedAt = Date.now();
+        saveLocalState();
+        renderSeatCheckInBoard();
+        closeModal("modalResetToday");
+        showToast("🌈", "已重置今日全班簽到紀錄");
+        pushToCloud();
+      }
+
+      // ==================== 老師編輯模式：智慧「下一個」編號＋可記憶「作業類別」 ====================
+      function detectNextNumber(text) {
+        if (manualResetNumberFlag) return 1;
+        const lines = (text || "").split("\n");
+        let maxNum = 0;
+        lines.forEach((line) => {
+          const m = line.trim().match(/^(\d+)\s*[.、．)）]/);
+          if (m) {
+            const n = parseInt(m[1], 10);
+            if (!isNaN(n) && n > maxNum) maxNum = n;
+          }
+        });
+        return maxNum + 1;
+      }
+
+      function updateNextNumberPreview() {
+        const ta = document.getElementById("editNotebookText");
+        const preview = document.getElementById("nextNumberPreview");
+        if (!ta || !preview) return;
+        const nextNum = detectNextNumber(ta.value);
+        preview.textContent = `${nextNum}.`;
+      }
+
+      function handleInsertNextNumber() {
+        const ta = document.getElementById("editNotebookText");
+        if (!ta) return;
+
+        const nextNum = detectNextNumber(ta.value);
+        manualResetNumberFlag = false;
+
+        const pos = typeof ta.selectionStart === "number" ? ta.selectionStart : ta.value.length;
+        const before = ta.value.slice(0, pos);
+        const after = ta.value.slice(ta.selectionEnd || pos);
+
+        const needNewline = before.length > 0 && !before.endsWith("\n");
+        const prefix = needNewline ? "\n" : "";
+        const insertStr = `${prefix}${nextNum}.`;
+
+        ta.value = before + insertStr + after;
+        const newCursor = before.length + insertStr.length;
+        ta.focus();
+        ta.selectionStart = ta.selectionEnd = newCursor;
+
+        updateNextNumberPreview();
+      }
+
+      function handleResetNumberCounter() {
+        manualResetNumberFlag = true;
+        updateNextNumberPreview();
+        showToast("🔄", "下一個編號已重設為 1.");
+      }
+
+      function renderSubjectChips() {
+        const container = document.getElementById("subjectChipsContainer");
+        if (!container) return;
+        container.innerHTML = "";
+
+        const list = Array.isArray(state.subjects) ? state.subjects : [...DEFAULT_SUBJECTS];
+
+        list.forEach((subj, idx) => {
+          const wrapper = document.createElement("div");
+          wrapper.className = "inline-flex items-center bg-white border-2 border-sky-200 hover:border-sky-400 rounded-xl shadow-2xs overflow-hidden transition";
+
+          const insertBtn = document.createElement("button");
+          insertBtn.type = "button";
+          insertBtn.className = "px-3 py-1.5 text-xs sm:text-sm font-black text-sky-900 hover:bg-sky-50 active:bg-sky-100 transition cursor-pointer";
+          insertBtn.textContent = subj;
+          insertBtn.addEventListener("click", () => {
+            insertAtTextareaCursor(`${subj} `);
+          });
+
+          const delBtn = document.createElement("button");
+          delBtn.type = "button";
+          delBtn.title = `刪除「${subj}」`;
+          delBtn.className = "px-1.5 py-1.5 text-xs font-black text-rose-400 hover:text-white hover:bg-rose-500 border-l border-sky-100 transition cursor-pointer";
+          delBtn.textContent = "×";
+          delBtn.addEventListener("click", () => {
+            state.subjects.splice(idx, 1);
+            saveLocalState();
+            renderSubjectChips();
+            showToast("🗑️", `已刪除作業類別「${subj}」並記憶`);
+          });
+
+          wrapper.appendChild(insertBtn);
+          wrapper.appendChild(delBtn);
+          container.appendChild(wrapper);
+        });
+      }
+
+      function handleAddSubject() {
+        const input = document.getElementById("inputNewSubject");
+        if (!input) return;
+        const val = input.value.trim();
+        if (!val) {
+          showToast("⚠️", "請先輸入要新增的作業類別名稱！");
+          input.focus();
+          return;
+        }
+        if (!Array.isArray(state.subjects)) state.subjects = [...DEFAULT_SUBJECTS];
+        if (state.subjects.includes(val)) {
+          showToast("💡", `「${val}」已經在選項中囉！`);
+          input.value = "";
+          return;
+        }
+        state.subjects.push(val);
+        saveLocalState();
+        renderSubjectChips();
+        input.value = "";
+        showToast("✨", `已新增「${val}」並自動記憶！`);
+      }
+
+      function handleRestoreDefaultSubjects() {
+        state.subjects = [...DEFAULT_SUBJECTS];
+        saveLocalState();
+        renderSubjectChips();
+        showToast("🔄", "已恢復預設 6 項作業類別並記憶");
+      }
+
+      function insertAtTextareaCursor(str) {
+        const ta = document.getElementById("editNotebookText");
+        if (!ta) return;
+        const start = typeof ta.selectionStart === "number" ? ta.selectionStart : ta.value.length;
+        const end = typeof ta.selectionEnd === "number" ? ta.selectionEnd : start;
+        const text = ta.value;
+        ta.value = text.slice(0, start) + str + text.slice(end);
+        ta.focus();
+        ta.selectionStart = ta.selectionEnd = start + str.length;
+        updateNextNumberPreview();
+      }
+
+      // ==================== 彈窗與編輯視窗流程 ====================
+      function openModal(id) {
+        const el = document.getElementById(id);
+        if (el) {
+          el.classList.remove("hidden");
+          el.classList.add("flex");
+        }
+      }
+
+      function closeModal(id) {
+        const el = document.getElementById(id);
+        if (el) {
+          el.classList.add("hidden");
+          el.classList.remove("flex");
+        }
+      }
+
+      function openPasswordPrompt() {
+        const input = document.getElementById("inputAdminPassword");
+        const err = document.getElementById("passwordErrorMsg");
+        input.value = "";
+        err.classList.add("hidden");
+        openModal("modalPassword");
+        setTimeout(() => input.focus(), 60);
+      }
+
+      function verifyPassword() {
+        const val = document.getElementById("inputAdminPassword").value.trim();
+        if (val === String(state.adminPassword || "503")) {
+          closeModal("modalPassword");
+          openTeacherPanel();
+        } else {
+          document.getElementById("passwordErrorMsg").classList.remove("hidden");
+        }
+      }
+
+      function openTeacherPanel() {
+        manualResetNumberFlag = false;
+        const currentFont = clampFontSize(state.fontSize);
+        document.getElementById("editNotebookText").value = state.notebookText || "";
+        document.getElementById("editReminderTitle").value = state.reminderTitle || DEFAULT_REMINDER_TITLE;
+        document.getElementById("editWarmReminder").value = state.warmReminder || DEFAULT_REMINDER;
+        document.getElementById("selectWritingMode").value = state.writingMode || "vertical";
+        document.getElementById("rangeFontSize").value = currentFont;
+        document.getElementById("inputFontSize").value = currentFont;
+        document.getElementById("rangeFontSizePreview").textContent = `${currentFont}px`;
+
+        document.getElementById("editClassIcon").value = state.classIcon || "🐶";
+        document.getElementById("editClassTitle").value = state.classTitle || "🐾 我們的 503 🐾";
+        document.getElementById("editTotalSeats").value = state.totalSeats || 28;
+        document.getElementById("editAdminPassword").value = state.adminPassword || "503";
+
+        document.getElementById("editBgImageUrl").value = state.bgImageUrl || "";
+        const bgOp = Math.max(5, Math.min(100, parseInt(state.bgOpacity, 10) || 35));
+        const cardAl = Math.max(35, Math.min(98, parseInt(state.cardAlpha, 10) || 72));
+        document.getElementById("rangeBgOpacity").value = bgOp;
+        document.getElementById("bgOpacityLabel").textContent = `${bgOp}%`;
+        document.getElementById("rangeCardAlpha").value = cardAl;
+        document.getElementById("cardAlphaLabel").textContent = `${cardAl}%`;
+
+        document.getElementById("editFirebaseUrl").value = cloudConfig.firebaseUrl || "";
+        document.getElementById("editSyncRoomKey").value = cloudConfig.roomKey || "class503";
+        document.getElementById("cloudTestResult").classList.add("hidden");
+
+        renderBgThemeButtons();
+        renderIconPresets();
+        renderSubjectChips();
+        updateNextNumberPreview();
+        switchTab("notebook");
+        openModal("modalTeacherPanel");
+      }
+
+      function renderBgThemeButtons() {
+        const box = document.getElementById("bgThemeContainer");
+        if (!box) return;
+        box.innerHTML = "";
+        BG_THEMES.forEach((th) => {
+          const isSelected = (state.bgTheme || "cream") === th.id;
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = `flex flex-col items-center gap-1 p-1.5 rounded-xl border-2 text-[11px] font-black transition cursor-pointer ${
+            isSelected ? "border-purple-600 bg-white shadow-xs text-purple-900" : "border-purple-100 bg-white/70 hover:bg-white text-stone-700"
+          }`;
+          btn.innerHTML = `
+            <span class="w-6 h-6 rounded-full border border-stone-300 shadow-2xs" style="background-color: ${th.color};"></span>
+            <span>${th.name}</span>
+          `;
+          btn.addEventListener("click", () => {
+            state.bgTheme = th.id;
+            renderBgThemeButtons();
+            applyBackgroundAndTransparency();
+          });
+          box.appendChild(btn);
+        });
+      }
+
+      function renderIconPresets() {
+        const box = document.getElementById("iconPresetContainer");
+        if (!box) return;
+        box.innerHTML = "";
+        PRESET_CLASS_ICONS.forEach((ico) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "w-9 h-9 rounded-xl bg-white hover:bg-amber-100 active:scale-95 border border-amber-200 flex items-center justify-center text-xl shadow-2xs transition cursor-pointer";
+          btn.textContent = ico;
+          btn.addEventListener("click", () => {
+            document.getElementById("editClassIcon").value = ico;
+          });
+          box.appendChild(btn);
+        });
+      }
+
+      function switchTab(tabName) {
+        const panels = {
+          notebook: "panelTabNotebook",
+          class: "panelTabClass",
+          cloud: "panelTabCloud"
+        };
+        Object.keys(panels).forEach((k) => {
+          const el = document.getElementById(panels[k]);
+          if (el) {
+            if (k === tabName) el.classList.remove("hidden");
+            else el.classList.add("hidden");
+          }
+        });
+        document.querySelectorAll(".teacher-tab-btn").forEach((btn) => {
+          if (btn.dataset.tab === tabName) {
+            btn.className = "teacher-tab-btn px-4 py-2 rounded-t-2xl text-xs sm:text-sm font-black bg-white text-orange-600 border-t-2 border-x-2 border-amber-200 cursor-pointer whitespace-nowrap";
+          } else {
+            btn.className = "teacher-tab-btn px-4 py-2 rounded-t-2xl text-xs sm:text-sm font-bold text-stone-600 hover:text-stone-900 cursor-pointer whitespace-nowrap";
+          }
+        });
+      }
+
+      async function saveNotebookEditor() {
+        state.notebookText = document.getElementById("editNotebookText").value.trim();
+        state.reminderTitle = document.getElementById("editReminderTitle").value.trim() || DEFAULT_REMINDER_TITLE;
+        state.warmReminder = document.getElementById("editWarmReminder").value.trim() || DEFAULT_REMINDER;
+        state.writingMode = document.getElementById("selectWritingMode").value;
+        state.fontSize = clampFontSize(document.getElementById("inputFontSize").value);
+        state.updatedAt = Date.now();
+
+        saveLocalState();
+        renderAll();
+        closeModal("modalTeacherPanel");
+
+        const ok = await pushToCloud();
+        if (ok) {
+          showToast("☁️", "聯絡簿與溫馨提醒已儲存並雲端同步！");
+        } else {
+          showToast("💾", "聯絡簿與溫馨提醒已儲存（本機模式）");
+        }
+      }
+
+      function copyParentsPlainText() {
+        try {
+          const today = getTodayDateStr();
+          const content = document.getElementById("editNotebookText").value.trim() || "無";
+          const reminder = document.getElementById("editWarmReminder").value.trim();
+          const fullText = `🐾 【${state.classTitle}】${today}\n\n${content}${reminder ? `\n\n💡 溫馨提醒：${reminder}` : ""}`;
+
+          const ta = document.createElement("textarea");
+          ta.value = fullText;
+          ta.style.position = "fixed";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+          showToast("📋", "已複製聯絡簿純文字，可直接貼給家長群組！");
+        } catch (err) {
+          console.error("複製失敗:", err);
+        }
+      }
+
+      async function saveClassSettings() {
+        const iconVal = document.getElementById("editClassIcon").value.trim();
+        const title = document.getElementById("editClassTitle").value.trim();
+        const seats = parseInt(document.getElementById("editTotalSeats").value, 10);
+        const pwd = document.getElementById("editAdminPassword").value.trim();
+        const bgUrl = document.getElementById("editBgImageUrl").value.trim();
+        const bgOp = parseInt(document.getElementById("rangeBgOpacity").value, 10);
+        const cardAl = parseInt(document.getElementById("rangeCardAlpha").value, 10);
+
+        if (isNaN(seats) || seats < 1 || seats > 42) {
+          showToast("⚠️", "座號人數請輸入 1 ～ 42 之間的數字");
+          return;
+        }
+        state.classIcon = iconVal || "🐶";
+        if (title) state.classTitle = title;
+        if (pwd) state.adminPassword = pwd;
+        state.totalSeats = seats;
+        state.bgImageUrl = bgUrl;
+        state.bgOpacity = isNaN(bgOp) ? 35 : bgOp;
+        state.cardAlpha = isNaN(cardAl) ? 72 : cardAl;
+        state.updatedAt = Date.now();
+
+        saveLocalState();
+        renderAll();
+        closeModal("modalTeacherPanel");
+        await pushToCloud();
+        showToast(state.classIcon, "已儲存班級、圖標與高透明度背景設定！");
+      }
+
+      async function testAndSaveCloud() {
+        const resultBox = document.getElementById("cloudTestResult");
+        const urlVal = document.getElementById("editFirebaseUrl").value.trim().replace(/\/+$/, "");
+        const keyVal = document.getElementById("editSyncRoomKey").value.trim() || "class503";
+
+        cloudConfig.firebaseUrl = urlVal;
+        cloudConfig.roomKey = keyVal;
+        saveCloudConfig();
+
+        resultBox.classList.remove("hidden");
+
+        if (!urlVal) {
+          if (pollTimer) clearInterval(pollTimer);
+          setSyncStatus("local");
+          resultBox.className = "rounded-xl p-3 text-xs font-black bg-amber-50 text-amber-800 border border-amber-200";
+          resultBox.textContent = "💾 已清空雲端網址，切換為本機儲存模式。";
+          return;
+        }
+
+        resultBox.className = "rounded-xl p-3 text-xs font-black bg-sky-50 text-sky-800 border border-sky-200";
+        resultBox.textContent = "📡 正在連線至 Firebase 並同步資料...";
+
+        try {
+          const endpoint = getFirebaseEndpoint();
+          const res = await fetch(endpoint, { method: "GET", cache: "no-store" });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const remote = await res.json();
+
+          if (remote && typeof remote === "object" && (remote.updatedAt || 0) > (state.updatedAt || 0)) {
+            state = Object.assign({}, state, remote);
+            if (!Array.isArray(state.subjects)) state.subjects = [...DEFAULT_SUBJECTS];
+            saveLocalState();
+            renderAll();
+          } else {
+            state.updatedAt = Date.now();
+            await pushToCloud();
+          }
+
+          startCloudSyncLoop();
+          resultBox.className = "rounded-xl p-3 text-xs font-black bg-emerald-50 text-emerald-800 border border-emerald-200";
+          resultBox.textContent = "✅ 連線成功！手機與教室電腦已建立即時雲端同步。";
+          showToast("☁️", "雲端同步連線成功！");
+        } catch (err) {
+          setSyncStatus("error");
+          resultBox.className = "rounded-xl p-3 text-xs font-black bg-rose-50 text-rose-800 border border-rose-200";
+          resultBox.textContent = `❌ 連線失敗（${err.message}），請檢查網址與 Firebase 讀寫規則。`;
+        }
+      }
+
+      function toggleWritingDirection() {
+        state.writingMode = state.writingMode === "vertical" ? "horizontal" : "vertical";
+        saveLocalState();
+        renderVerticalNotebook();
+        showToast("📐", state.writingMode === "vertical" ? "已切換為「正統直排 ↕」" : "已切換為「單欄橫排 ↔」");
+      }
+
+      function adjustFontSize(delta) {
+        const nextSize = clampFontSize(clampFontSize(state.fontSize) + delta);
+        state.fontSize = nextSize;
+        saveLocalState();
+        renderVerticalNotebook();
+        showToast("🔍", `聯絡簿字體已調整為 ${nextSize}px`);
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      // ==================== 事件綁定與啟動 ====================
+      function bindEvents() {
+        const on = (id, fn) => {
+          const el = document.getElementById(id);
+          if (el) el.addEventListener("click", fn);
+        };
+
+        on("btnToggleDirection", toggleWritingDirection);
+        on("btnFontDec", () => adjustFontSize(-2));
+        on("btnFontInc", () => adjustFontSize(2));
+        on("btnOpenTeacher", openPasswordPrompt);
+        on("btnSyncBadge", openPasswordPrompt);
+
+        const rangeFont = document.getElementById("rangeFontSize");
+        const inputFont = document.getElementById("inputFontSize");
+        const previewFont = document.getElementById("rangeFontSizePreview");
+        if (rangeFont && inputFont && previewFont) {
+          rangeFont.addEventListener("input", () => {
+            const v = clampFontSize(rangeFont.value);
+            inputFont.value = v;
+            previewFont.textContent = `${v}px`;
+            state.fontSize = v;
+            renderVerticalNotebook();
+          });
+          inputFont.addEventListener("change", () => {
+            const v = clampFontSize(inputFont.value);
+            inputFont.value = v;
+            rangeFont.value = v;
+            previewFont.textContent = `${v}px`;
+            state.fontSize = v;
+            renderVerticalNotebook();
+          });
+        }
+
+        on("btnExportCsv", exportAttendanceCsv);
+        on("btnResetToday", () => openModal("modalResetToday"));
+
+        on("btnKeepSeat", () => {
+          pendingCancelSeatNum = null;
+          closeModal("modalCancelSeat");
+        });
+        on("btnConfirmCancelSeat", confirmCancelSeat);
+
+        on("btnAbortReset", () => closeModal("modalResetToday"));
+        on("btnConfirmReset", confirmResetToday);
+
+        on("btnClosePassword", () => closeModal("modalPassword"));
+        on("btnVerifyPassword", verifyPassword);
+        const pwdInput = document.getElementById("inputAdminPassword");
+        if (pwdInput) {
+          pwdInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") verifyPassword();
+          });
+        }
+
+        on("btnCloseTeacherPanel", () => closeModal("modalTeacherPanel"));
+        document.querySelectorAll(".teacher-tab-btn").forEach((btn) => {
+          btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+        });
+
+        on("btnInsertNextNumber", handleInsertNextNumber);
+        on("btnResetNumberCounter", handleResetNumberCounter);
+
+        const nbTextarea = document.getElementById("editNotebookText");
+        if (nbTextarea) {
+          nbTextarea.addEventListener("input", () => {
+            manualResetNumberFlag = false;
+            updateNextNumberPreview();
+          });
+        }
+
+        on("btnAddSubject", handleAddSubject);
+        const subjInput = document.getElementById("inputNewSubject");
+        if (subjInput) {
+          subjInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              handleAddSubject();
+            }
+          });
+        }
+        on("btnRestoreDefaultSubjects", handleRestoreDefaultSubjects);
+
+        on("btnSaveNotebook", saveNotebookEditor);
+        on("btnCopyParentsText", copyParentsPlainText);
+        on("btnSaveClassSettings", saveClassSettings);
+        on("btnTestAndSaveCloud", testAndSaveCloud);
+
+        const rangeBgOp = document.getElementById("rangeBgOpacity");
+        const bgOpLbl = document.getElementById("bgOpacityLabel");
+        if (rangeBgOp && bgOpLbl) {
+          rangeBgOp.addEventListener("input", () => {
+            const v = parseInt(rangeBgOp.value, 10) || 35;
+            bgOpLbl.textContent = `${v}%`;
+            state.bgOpacity = v;
+            applyBackgroundAndTransparency();
+          });
+        }
+
+        const rangeCardAl = document.getElementById("rangeCardAlpha");
+        const cardAlLbl = document.getElementById("cardAlphaLabel");
+        if (rangeCardAl && cardAlLbl) {
+          rangeCardAl.addEventListener("input", () => {
+            const v = parseInt(rangeCardAl.value, 10) || 72;
+            cardAlLbl.textContent = `${v}%`;
+            state.cardAlpha = v;
+            applyBackgroundAndTransparency();
+          });
+        }
+
+        const editBgUrl = document.getElementById("editBgImageUrl");
+        if (editBgUrl) {
+          editBgUrl.addEventListener("change", () => {
+            state.bgImageUrl = editBgUrl.value.trim();
+            applyBackgroundAndTransparency();
+          });
+        }
+
+        on("btnClearBgImage", () => {
+          document.getElementById("editBgImageUrl").value = "";
+          state.bgImageUrl = "";
+          applyBackgroundAndTransparency();
+          showToast("🧹", "已清除自訂背景圖片");
+        });
+
+        const fileInput = document.getElementById("inputBgImageFile");
+        if (fileInput) {
+          fileInput.addEventListener("change", (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+              const img = new Image();
+              img.onload = () => {
+                try {
+                  const maxW = 1440;
+                  const scale = img.width > maxW ? maxW / img.width : 1;
+                  const canvas = document.createElement("canvas");
+                  canvas.width = Math.round(img.width * scale);
+                  canvas.height = Math.round(img.height * scale);
+                  const ctx = canvas.getContext("2d");
+                  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                  const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.78);
+                  document.getElementById("editBgImageUrl").value = compressedDataUrl;
+                  state.bgImageUrl = compressedDataUrl;
+                  applyBackgroundAndTransparency();
+                  showToast("🖼️", "已套用本機照片作為背景（記得按下方儲存喔！）");
+                } catch (err) {
+                  console.error("圖片壓縮失敗:", err);
+                }
+              };
+              img.src = ev.target.result;
+            };
+            reader.readAsDataURL(file);
+          });
+        }
+      }
+
+      window.addEventListener("DOMContentLoaded", () => {
+        try {
+          loadLocalState();
+          bindEvents();
+          tickClock();
+          renderAll();
+          setInterval(tickClock, 1000);
+          window.addEventListener("resize", syncAdaptiveGridLines);
+          startCloudSyncLoop();
+        } catch (err) {
+          console.error("初始化失敗:", err);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

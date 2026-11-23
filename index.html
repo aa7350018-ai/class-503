@@ -170,6 +170,20 @@
       font-weight: 800;
     }
 
+    /* 直排中用 [ ] 包起來的局部橫向片段（例如：國習 [L8] 或 [L8]），維持自然橫向閱讀 */
+    .v-horiz {
+      writing-mode: horizontal-tb;
+      text-orientation: mixed;
+      display: inline-block;
+      line-height: 1.1;
+      vertical-align: middle;
+      margin: 0.12em 0;
+      padding: 0 0.06em;
+      letter-spacing: 0.02em;
+      font-family: "JetBrains Mono", "Noto Sans TC", sans-serif;
+      font-weight: 800;
+    }
+
     /* 直排中的波浪符（～、~）轉向 90 度變成直立連接線 */
     .v-tilde {
       display: inline-block;
@@ -177,6 +191,23 @@
       transform-origin: center center;
       line-height: 1;
     }
+
+    /* 直排中的括號（( )、（ ））轉向 90 度變成上下包覆的直式括號，並緊縮上下留白 */
+    .v-paren {
+      display: inline-block;
+      transform: rotate(90deg);
+      transform-origin: center center;
+      line-height: 1;
+      height: 0.72em;
+      vertical-align: middle;
+    }
+
+    /* 聯絡簿項目自訂文字顏色（高對比教室黑板/投影清晰配色） */
+    .nb-c-red { color: #dc2626; }
+    .nb-c-blue { color: #1d4ed8; }
+    .nb-c-green { color: #047857; }
+    .nb-c-orange { color: #d97706; }
+    .nb-c-purple { color: #7e22ce; }
 
     /* 橫排單一畫布模式（從左上角開始由左至右、由上而下書寫） */
     .writing-horizontal {
@@ -276,17 +307,16 @@
 
       <!-- 【左下區域（佔左側高度 60%）】：寬敞好點擊的「純座號自主簽到區」 -->
       <section id="bottomLeftCard" class="cute-card bg-white/75 border-2 border-emerald-200/85 flex flex-col overflow-hidden">
-        <!-- 頂部：已到徽章 ＋ 未到座號膠囊列 ＋ 遲到座號膠囊列 -->
+        <!-- 頂部：已到徽章 ＋ 單行不擠壓的紅色「未到座號」膠囊列 -->
         <div id="absentHeaderBar" class="bg-emerald-50/80 border-b border-emerald-200/80 px-3 py-1.5 flex flex-col gap-1 shrink-0">
           <div class="flex items-center justify-between gap-2">
             <div class="flex items-center gap-1.5">
               <span class="text-lg">🌱</span>
               <span class="text-sm lg:text-base font-black text-emerald-950">晨間座號簽到</span>
-              <span class="hidden sm:inline-block text-[11px] font-bold text-emerald-700/80 bg-emerald-100/80 px-2 py-0.5 rounded-full">07:50前準時 · 06:00重置</span>
             </div>
             <div class="flex items-center gap-1.5">
-              <span id="lateSummaryPill" class="hidden bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full text-xs font-black text-amber-800 shadow-2xs">
-                遲到 <span id="lateCount" class="mono-num text-amber-700">0</span> 人
+              <span id="lateCountBadge" class="hidden bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full text-xs font-black text-amber-800 shadow-2xs">
+                ⏰ 遲到 <span id="lateCount" class="mono-num text-amber-700">0</span> 人
               </span>
               <span class="bg-white border border-emerald-200 px-2.5 py-0.5 rounded-full text-xs lg:text-sm font-black text-emerald-800 shadow-2xs">
                 已到 <span id="presentCount" class="mono-num text-emerald-600 text-sm lg:text-base">0</span> / <span id="totalCount" class="mono-num text-sm lg:text-base">28</span> 人
@@ -294,23 +324,13 @@
             </div>
           </div>
 
-          <!-- 尚未簽到座號單行橫向滑動膠囊列 -->
-          <div class="flex items-center gap-1.5 h-6 overflow-hidden">
+          <!-- 尚未簽到座號單行橫向滑動膠囊列（固定單行高度，絕不往下擠壓簽到格子） -->
+          <div class="flex items-center gap-1.5 h-7 overflow-hidden">
             <span id="absentBadgeLabel" class="bg-rose-500 text-white text-xs font-black px-2 py-0.5 rounded-full shrink-0">
               未到
             </span>
             <div id="absentPillsContainer" class="flex items-center gap-1 overflow-x-auto custom-scroll whitespace-nowrap py-0.5 flex-1 min-w-0">
               <!-- 動態生成紅色未到座號小膠囊 -->
-            </div>
-          </div>
-
-          <!-- 超過 07:50 遲到座號專屬單行橫向滑動膠囊列（有人遲到時自動顯示） -->
-          <div id="lateRowContainer" class="hidden items-center gap-1.5 h-6 overflow-hidden">
-            <span id="lateBadgeLabel" class="bg-amber-500 text-white text-xs font-black px-2 py-0.5 rounded-full shrink-0">
-              遲到
-            </span>
-            <div id="latePillsContainer" class="flex items-center gap-1 overflow-x-auto custom-scroll whitespace-nowrap py-0.5 flex-1 min-w-0">
-              <!-- 動態生成琥珀色遲到座號小膠囊 -->
             </div>
           </div>
         </div>
@@ -322,7 +342,7 @@
 
         <!-- 底部：簽到操作列 -->
         <div class="bg-emerald-50/75 border-t border-emerald-100/80 px-3 py-1 flex items-center justify-between gap-1.5 shrink-0">
-          <span class="text-xs font-bold text-emerald-800/85 truncate">👆 07:50前綠色準時 · 超過07:50橘黃色遲到</span>
+          <span class="text-xs font-bold text-emerald-800/85 truncate">⏰ 06:00～07:50 準時（其餘時段記為遲到）</span>
           <div class="flex items-center gap-1.5 shrink-0">
             <button type="button" id="btnExportCsv" class="bg-white hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-black px-2.5 py-0.5 rounded-xl transition cursor-pointer">
               📥 匯出
@@ -498,10 +518,77 @@
             </div>
           </div>
 
-          <!-- ③ 聯絡簿內容大文字框 -->
-          <div>
-            <label class="block text-xs font-black text-stone-700 mb-1">📒 今日聯絡簿內容（純直式畫布顯示，每行一項）：</label>
-            <textarea id="editNotebookText" rows="6" class="w-full rounded-2xl border-2 border-amber-300 bg-amber-50/30 p-3.5 text-lg font-bold text-stone-900 leading-relaxed focus:border-orange-400 focus:bg-white focus:outline-none" placeholder="請輸入聯絡簿內容，例如：&#10;1.國習 第八課&#10;2.數重 第12回..."></textarea>
+          <!-- ③ 頁數 / 單元一鍵插入小工具（免手動打中括號） -->
+          <div class="bg-indigo-50/80 border-2 border-indigo-200 rounded-2xl p-3 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-black text-indigo-950">📄 頁數 / 單元快捷插入（輸入數字一鍵插入，自動維持橫向）：</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <!-- 頁數範圍輸入 -->
+              <div class="inline-flex items-center gap-1 bg-white border border-indigo-200 rounded-xl px-2.5 py-1.5 shadow-2xs">
+                <span class="text-xs font-black text-indigo-700">p.</span>
+                <input type="text" id="inputPageStart" inputmode="numeric" placeholder="起頁" class="mono-num w-11 text-center text-xs sm:text-sm font-black text-stone-800 border-b border-indigo-200 focus:border-indigo-500 focus:outline-none" />
+                <span class="text-xs font-black text-stone-400">~</span>
+                <input type="text" id="inputPageEnd" inputmode="numeric" placeholder="迄頁" class="mono-num w-11 text-center text-xs sm:text-sm font-black text-stone-800 border-b border-indigo-200 focus:border-indigo-500 focus:outline-none" />
+                <span class="text-xs font-bold text-stone-400 ml-1">(</span>
+                <input type="text" id="inputPageSub" placeholder="題號如4~6" class="mono-num w-16 text-center text-xs font-bold text-stone-700 border-b border-indigo-200 focus:border-indigo-500 focus:outline-none" />
+                <span class="text-xs font-bold text-stone-400">)</span>
+                <button type="button" id="btnInsertPageRange" class="ml-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-black text-xs px-2.5 py-1 rounded-lg transition cursor-pointer">
+                  ＋ 插入頁數
+                </button>
+              </div>
+
+              <!-- 課次 / 單元輸入 -->
+              <div class="inline-flex items-center gap-1 bg-white border border-indigo-200 rounded-xl px-2.5 py-1.5 shadow-2xs">
+                <select id="selectUnitPrefix" class="text-xs font-black text-indigo-800 bg-transparent focus:outline-none cursor-pointer">
+                  <option value="L">L</option>
+                  <option value="Unit ">Unit</option>
+                  <option value="Ch.">Ch.</option>
+                </select>
+                <input type="text" id="inputUnitNum" placeholder="如 8" class="mono-num w-12 text-center text-xs sm:text-sm font-black text-stone-800 border-b border-indigo-200 focus:border-indigo-500 focus:outline-none" />
+                <button type="button" id="btnInsertUnit" class="ml-1 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-black text-xs px-2.5 py-1 rounded-lg transition cursor-pointer">
+                  ＋ 插入單元
+                </button>
+              </div>
+            </div>
+            <p class="text-[11px] font-bold text-indigo-800/85">✨ 系統已設定自動辨識：直接輸入 <code class="bg-white px-1 rounded">p.71~72</code>、<code class="bg-white px-1 rounded">p.33 (4~6)</code>、<code class="bg-white px-1 rounded">L8</code> 或使用上方按鈕插入，直排畫布都會自動保持橫向整齊排列！</p>
+          </div>
+
+          <!-- ④ 聯絡簿內容大文字框（支援整行或反白局部變色） -->
+          <div class="space-y-1.5">
+            <div class="flex flex-wrap items-center justify-between gap-1.5">
+              <label class="block text-xs font-black text-stone-700">📒 今日聯絡簿內容（每行一項）：</label>
+              <button type="button" id="btnWrapHorizontal" title="若還有其他自訂英文或符號想強制橫排，反白後點此按鈕即可" class="inline-flex items-center gap-1 bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300 px-2 py-0.5 rounded-lg text-[11px] font-bold transition cursor-pointer">
+                <span>↔ 自訂橫排標記</span>
+              </button>
+            </div>
+
+            <!-- 顏色區分快捷工具列（點選即可將「整行」或「反白文字」變色） -->
+            <div class="bg-amber-50/80 border border-amber-200 rounded-xl px-2.5 py-1.5 flex flex-wrap items-center justify-between gap-1.5">
+              <span class="text-[11px] font-black text-stone-700">🎨 項目顏色（游標停在該行或反白文字後點選）：</span>
+              <div class="flex flex-wrap items-center gap-1.5">
+                <button type="button" data-nb-color="default" title="恢復預設深黑色" class="nb-color-btn inline-flex items-center gap-1 bg-white hover:bg-stone-100 text-stone-800 border border-stone-300 px-2 py-0.5 rounded-lg text-xs font-black shadow-2xs transition cursor-pointer">
+                  <span class="w-2.5 h-2.5 rounded-full bg-stone-800"></span>預設黑
+                </button>
+                <button type="button" data-nb-color="red" title="醒目紅色（如考試、重要提醒）" class="nb-color-btn inline-flex items-center gap-1 bg-white hover:bg-rose-50 text-red-600 border border-red-200 px-2 py-0.5 rounded-lg text-xs font-black shadow-2xs transition cursor-pointer">
+                  <span class="w-2.5 h-2.5 rounded-full bg-red-600"></span>醒目紅
+                </button>
+                <button type="button" data-nb-color="blue" title="天空藍色（如數學、自然科）" class="nb-color-btn inline-flex items-center gap-1 bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-lg text-xs font-black shadow-2xs transition cursor-pointer">
+                  <span class="w-2.5 h-2.5 rounded-full bg-blue-700"></span>天空藍
+                </button>
+                <button type="button" data-nb-color="green" title="森林綠色（如帶物品、生活事項）" class="nb-color-btn inline-flex items-center gap-1 bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-lg text-xs font-black shadow-2xs transition cursor-pointer">
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-700"></span>森林綠
+                </button>
+                <button type="button" data-nb-color="orange" title="活力橘色" class="nb-color-btn inline-flex items-center gap-1 bg-white hover:bg-amber-50 text-amber-600 border border-amber-300 px-2 py-0.5 rounded-lg text-xs font-black shadow-2xs transition cursor-pointer">
+                  <span class="w-2.5 h-2.5 rounded-full bg-amber-600"></span>活力橘
+                </button>
+                <button type="button" data-nb-color="purple" title="葡萄紫色" class="nb-color-btn inline-flex items-center gap-1 bg-white hover:bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-lg text-xs font-black shadow-2xs transition cursor-pointer">
+                  <span class="w-2.5 h-2.5 rounded-full bg-purple-700"></span>葡萄紫
+                </button>
+              </div>
+            </div>
+
+            <textarea id="editNotebookText" rows="6" class="w-full rounded-2xl border-2 border-amber-300 bg-amber-50/30 p-3.5 text-lg font-bold text-stone-900 leading-relaxed focus:border-orange-400 focus:bg-white focus:outline-none" placeholder="請輸入聯絡簿內容，例如：&#10;1.國習 L8&#10;2.數習 p.71~72&#10;{red:4.明日考國語第七課聽寫}"></textarea>
           </div>
 
           <!-- ④ 左上角「📜 503 班級公約與溫馨提醒」標題與大字體內容編輯框 -->
@@ -689,10 +776,6 @@
       const DATA_STORAGE_KEY = "our_503_cute_classroom_v1";
       const CLOUD_STORAGE_KEY = "our_503_cloud_config_v1";
 
-      // 簽到規則常數：每日 AM 06:00 重置；超過 07:50（即 07:51 起）判定為遲到
-      const RESET_HOUR = 6;
-      const LATE_CUTOFF_MINUTES = 7 * 60 + 50; // 470 分鐘（07:50）
-
       const DEFAULT_SUBJECTS = ["國習", "國重", "數習", "數重", "社作", "社習"];
       const PRESET_CLASS_ICONS = ["🐶", "🐱", "🐻", "🐰", "🦁", "🐼", "🦊", "🐯", "🐸", "🐧", "🦄", "🦖", "🚀", "🌻", "🌈", "⭐"];
       const BG_THEMES = [
@@ -734,7 +817,7 @@
         reminderTitle: DEFAULT_REMINDER_TITLE,
         warmReminder: DEFAULT_REMINDER,
         subjects: [...DEFAULT_SUBJECTS],
-        attendanceDate: getEffectiveAttendanceDateStr(),
+        attendanceDate: getTodayDateStr(),
         attendance: {},
         notebookText: DEFAULT_NOTEBOOK_TEXT,
         // 初始預設狀態時間戳設為 0，確保新開啟的手機連線時永遠優先下載雲端（電腦）的現有資料，不會用預設範本覆蓋！
@@ -751,17 +834,13 @@
       let toastTimer = null;
       let manualResetNumberFlag = false;
 
-      // ==================== 日期、時間與簽到規則工具 ====================
-      // 每日 AM 06:00 作為簽到日界線：00:00~05:59 仍算前一個簽到週期，06:00 起算新的一天
-      function getEffectiveAttendanceDateStr(dateObj) {
-        const d = dateObj ? new Date(dateObj.getTime()) : new Date();
-        if (d.getHours() < RESET_HOUR) {
-          d.setDate(d.getDate() - 1);
-        }
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, "0");
-        const day = String(d.getDate()).padStart(2, "0");
-        return `${y}-${m}-${day}`;
+      // ==================== 日期與時間工具 ====================
+      function getTodayDateStr() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, "0");
+        const d = String(now.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
       }
 
       function getNowHHMM() {
@@ -769,16 +848,16 @@
         return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
       }
 
-      // 判斷簽到時間字串 "HH:MM" 是否超過 07:50（07:51 起為遲到；AM 00:00~05:59 延續前一日也視為遲到）
-      function isLateTimeStr(hhmmStr) {
-        if (!hhmmStr || typeof hhmmStr !== "string") return false;
-        const parts = hhmmStr.split(":");
+      // 判斷簽到時間是否準時：06:00 (360分) ～ 07:50 (470分) 為準時，其餘時間皆為遲到
+      function isOnTimeHHMM(hhmm) {
+        if (!hhmm || typeof hhmm !== "string") return false;
+        const parts = hhmm.split(":");
         if (parts.length < 2) return false;
         const h = parseInt(parts[0], 10);
         const m = parseInt(parts[1], 10);
         if (isNaN(h) || isNaN(m)) return false;
-        if (h < RESET_HOUR) return true;
-        return h * 60 + m > LATE_CUTOFF_MINUTES;
+        const totalMinutes = h * 60 + m;
+        return totalMinutes >= 6 * 60 && totalMinutes <= 7 * 60 + 50;
       }
 
       function formatSeatTwoDigits(num) {
@@ -813,16 +892,12 @@
           document.getElementById("rocDateDisplay").textContent = rocStr;
           document.getElementById("clockDisplay").textContent = timeStr;
 
-          // 每日 AM 06:00 自動重置簽到系統
-          const cycleDate = getEffectiveAttendanceDateStr(now);
-          if (state.attendanceDate !== cycleDate) {
-            state.attendanceDate = cycleDate;
+          const today = getTodayDateStr();
+          if (state.attendanceDate !== today) {
+            state.attendanceDate = today;
             state.attendance = {};
-            state.updatedAt = Date.now();
             saveLocalState();
             renderAll();
-            showToast("🌅", "早安！已於 AM 06:00 自動重置今日簽到系統");
-            pushToCloud();
           }
         } catch (err) {
           console.error("時鐘更新異常:", err);
@@ -842,9 +917,9 @@
               }
             }
           }
-          const cycleDate = getEffectiveAttendanceDateStr();
-          if (state.attendanceDate !== cycleDate) {
-            state.attendanceDate = cycleDate;
+          const today = getTodayDateStr();
+          if (state.attendanceDate !== today) {
+            state.attendanceDate = today;
             state.attendance = {};
           }
           const rawCloud = localStorage.getItem(CLOUD_STORAGE_KEY);
@@ -938,11 +1013,11 @@
           const remote = await res.json();
           if (remote && typeof remote === "object") {
             if ((remote.updatedAt || 0) > (state.updatedAt || 0)) {
-              const cycleDate = getEffectiveAttendanceDateStr();
+              const today = getTodayDateStr();
               state = Object.assign({}, state, remote);
               if (!Array.isArray(state.subjects)) state.subjects = [...DEFAULT_SUBJECTS];
-              if (state.attendanceDate !== cycleDate) {
-                state.attendanceDate = cycleDate;
+              if (state.attendanceDate !== today) {
+                state.attendanceDate = today;
                 state.attendance = {};
               }
               saveLocalState();
@@ -1076,14 +1151,9 @@
         const grid = document.getElementById("seatGrid");
         const pillsBox = document.getElementById("absentPillsContainer");
         const absentBadge = document.getElementById("absentBadgeLabel");
-        const lateRow = document.getElementById("lateRowContainer");
-        const latePillsBox = document.getElementById("latePillsContainer");
-        const lateBadge = document.getElementById("lateBadgeLabel");
-        const lateSummaryPill = document.getElementById("lateSummaryPill");
 
         grid.innerHTML = "";
         pillsBox.innerHTML = "";
-        latePillsBox.innerHTML = "";
 
         const total = Math.max(1, Math.min(42, parseInt(state.totalSeats, 10) || 28));
         const cols = total <= 28 ? 7 : Math.ceil(total / 5);
@@ -1092,24 +1162,22 @@
         grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
         grid.style.gridTemplateRows = `repeat(${rows}, minmax(0, 1fr))`;
 
-        const cycleDate = getEffectiveAttendanceDateStr();
+        const today = getTodayDateStr();
         const map = state.attendance || {};
         let presentCount = 0;
+        let lateCount = 0;
         const absentList = [];
-        const lateList = [];
 
         for (let seat = 1; seat <= total; seat++) {
           const key = String(seat);
           const rec = map[key];
-          const isPresent = Boolean(rec && rec.date === cycleDate);
+          const isPresent = Boolean(rec && rec.date === today);
+          const isLate = isPresent && (typeof rec.isLate === "boolean" ? rec.isLate : !isOnTimeHHMM(rec.time));
           const seatLabel = formatSeatTwoDigits(seat);
-          const isLate = isPresent && Boolean(rec.late || isLateTimeStr(rec.time));
 
           if (isPresent) {
             presentCount++;
-            if (isLate) {
-              lateList.push({ seat: seatLabel, time: rec.time });
-            }
+            if (isLate) lateCount++;
           } else {
             absentList.push(seatLabel);
           }
@@ -1118,22 +1186,19 @@
           btn.type = "button";
           btn.addEventListener("click", () => handleSeatClick(seat));
 
-          if (isPresent && isLate) {
-            // 超過 07:50 遲到簽到：琥珀橘黃色警示樣式，明確區別於準時簽到
-            btn.className = "animate-candy-bounce min-h-0 h-full w-full flex flex-col items-center justify-center rounded-2xl bg-gradient-to-b from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white border-2 border-amber-600/80 px-1 py-0.5 shadow-xs transition cursor-pointer overflow-hidden";
-            btn.innerHTML = `
-              <span class="mono-num text-xl xl:text-2xl font-extrabold leading-none tracking-tight">${seatLabel}</span>
-              <span class="mono-num text-[11px] xl:text-xs font-extrabold bg-amber-950/45 text-amber-50 px-2 py-0.5 rounded-full mt-1 leading-none">⏰${escapeHtml(rec.time)}</span>
-            `;
-          } else if (isPresent) {
-            // 07:50（含）以前準時簽到：翠綠色樣式
+          if (isPresent && !isLate) {
             btn.className = "animate-candy-bounce min-h-0 h-full w-full flex flex-col items-center justify-center rounded-2xl bg-gradient-to-b from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white border border-emerald-500 px-1 py-0.5 shadow-xs transition cursor-pointer overflow-hidden";
             btn.innerHTML = `
               <span class="mono-num text-xl xl:text-2xl font-extrabold leading-none tracking-tight">${seatLabel}</span>
               <span class="mono-num text-[11px] xl:text-xs font-extrabold bg-emerald-800/45 text-white px-2 py-0.5 rounded-full mt-1 leading-none">✔${escapeHtml(rec.time)}</span>
             `;
+          } else if (isPresent && isLate) {
+            btn.className = "animate-candy-bounce min-h-0 h-full w-full flex flex-col items-center justify-center rounded-2xl bg-gradient-to-b from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white border border-amber-500 px-1 py-0.5 shadow-xs transition cursor-pointer overflow-hidden";
+            btn.innerHTML = `
+              <span class="mono-num text-xl xl:text-2xl font-extrabold leading-none tracking-tight">${seatLabel}</span>
+              <span class="mono-num text-[10px] xl:text-[11px] font-extrabold bg-amber-950/45 text-white px-1.5 py-0.5 rounded-full mt-1 leading-none">遲${escapeHtml(rec.time)}</span>
+            `;
           } else {
-            // 尚未簽到
             btn.className = "min-h-0 h-full w-full flex flex-col items-center justify-center rounded-2xl bg-white/80 hover:bg-amber-50/95 border-2 border-stone-200/85 hover:border-amber-300 active:scale-95 text-stone-700 px-1 py-0.5 shadow-2xs transition cursor-pointer overflow-hidden";
             btn.innerHTML = `
               <span class="mono-num text-xl xl:text-2xl font-extrabold text-stone-700 leading-none tracking-tight">${seatLabel}</span>
@@ -1146,17 +1211,26 @@
 
         document.getElementById("presentCount").textContent = presentCount;
         document.getElementById("totalCount").textContent = total;
-        document.getElementById("lateCount").textContent = lateList.length;
 
-        // 渲染未到座號膠囊
+        const lateBadge = document.getElementById("lateCountBadge");
+        const lateCountEl = document.getElementById("lateCount");
+        if (lateBadge && lateCountEl) {
+          if (lateCount > 0) {
+            lateCountEl.textContent = lateCount;
+            lateBadge.classList.remove("hidden");
+          } else {
+            lateBadge.classList.add("hidden");
+          }
+        }
+
         if (absentList.length === 0) {
           absentBadge.className = "bg-emerald-500 text-white text-xs font-black px-2 py-0.5 rounded-full shrink-0";
           absentBadge.textContent = "全到齊 🎉";
           const okSpan = document.createElement("span");
           okSpan.className = "text-xs lg:text-sm font-black text-emerald-700";
-          okSpan.textContent = lateList.length === 0
+          okSpan.textContent = lateCount === 0
             ? "太棒了！503 全班都準時到校囉！"
-            : `全班皆已到校（其中 ${lateList.length} 人超過 07:50 遲到）`;
+            : `全班已到齊（準時 ${presentCount - lateCount} 人、遲到 ${lateCount} 人）`;
           pillsBox.appendChild(okSpan);
         } else {
           absentBadge.className = "bg-rose-500 text-white text-xs font-black px-2 py-0.5 rounded-full shrink-0";
@@ -1167,24 +1241,6 @@
             pill.textContent = numStr;
             pillsBox.appendChild(pill);
           });
-        }
-
-        // 另外獨立渲染「超過 07:50 遲到號碼」膠囊列
-        if (lateList.length > 0) {
-          lateSummaryPill.classList.remove("hidden");
-          lateRow.classList.remove("hidden");
-          lateRow.classList.add("flex");
-          lateBadge.textContent = `遲到 (${lateList.length})`;
-          lateList.forEach((item) => {
-            const pill = document.createElement("span");
-            pill.className = "mono-num bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 rounded-lg text-xs font-extrabold shrink-0";
-            pill.textContent = `${item.seat} (${item.time})`;
-            latePillsBox.appendChild(pill);
-          });
-        } else {
-          lateSummaryPill.classList.add("hidden");
-          lateRow.classList.add("hidden");
-          lateRow.classList.remove("flex");
         }
       }
 
@@ -1213,18 +1269,64 @@
         if (!content) {
           inner.textContent = "（今日尚無聯絡簿事項，請點右上角「🔑 老師編輯」輸入喔！）";
         } else {
-          if (isVertical) {
-            // 逐行處理（按 Enter 換行即自然分開）：將「P.數字」或「數字+選填小數點」（1~3 位數）同格並排顯示，波浪符直立轉向
-            const formattedLines = content.split("\n").map((line) => {
-              const escapedLine = escapeHtml(line);
-              return escapedLine
-                .replace(/([Pp]\.\d{1,3}|\d{1,3}\.?)/g, (m) => `<span class="tcy-num">${m}</span>`)
-                .replace(/[～~]/g, (m) => `<span class="v-tilde">${m}</span>`);
-            });
-            inner.innerHTML = formattedLines.join("\n");
-          } else {
-            inner.textContent = content;
-          }
+          const validColors = new Set(["red", "blue", "green", "orange", "purple"]);
+          const colorTokenRegex = /(\{(?:red|blue|green|orange|purple):[^\{\}\n]+\})/g;
+
+          const autoHorizRegex = /((?:[Pp]\.\s*\d{1,3}(?:\s*[~～\-－]\s*\d{1,3})?(?:\s*[\(（][^\)）\n]{1,12}[\)）])?)|(?:(?:Unit|UNIT|Ch\.|CH\.|Lesson|LESSON)\s*\d{1,3}(?:\s*[~～\-－]\s*\d{1,3})?)|(?:[Ll]\d{1,3}(?:\s*[~～\-－]\s*[Ll]?\d{1,3})?))/g;
+
+          const formatPlainVertical = (seg) => {
+            return escapeHtml(seg)
+              .replace(/(\d{1,3}\.?)/g, (m) => `<span class="tcy-num">${m}</span>`)
+              .replace(/[～~]/g, (m) => `<span class="v-tilde">${m}</span>`)
+              .replace(/[()（）]/g, (m) => `<span class="v-paren">${m}</span>`);
+          };
+
+          const formatAutoSegment = (seg) => {
+            const subParts = seg.split(autoHorizRegex);
+            return subParts
+              .map((sp) => {
+                if (!sp) return "";
+                if (autoHorizRegex.test(sp)) {
+                  autoHorizRegex.lastIndex = 0;
+                  return `<span class="v-horiz">${escapeHtml(sp)}</span>`;
+                }
+                autoHorizRegex.lastIndex = 0;
+                return formatPlainVertical(sp);
+              })
+              .join("");
+          };
+
+          const renderTextChunk = (rawChunk) => {
+            if (isVertical) {
+              const parts = rawChunk.split(/(\[[^\[\]\n]+\])/g);
+              return parts
+                .map((part) => {
+                  if (part.startsWith("[") && part.endsWith("]") && part.length > 2) {
+                    const innerText = part.slice(1, -1);
+                    return `<span class="v-horiz">${escapeHtml(innerText)}</span>`;
+                  }
+                  return formatAutoSegment(part);
+                })
+                .join("");
+            } else {
+              return escapeHtml(rawChunk.replace(/\[([^\[\]\n]+)\]/g, "$1"));
+            }
+          };
+
+          const formattedLines = content.split("\n").map((line) => {
+            const colorSegments = line.split(colorTokenRegex);
+            return colorSegments
+              .map((seg) => {
+                if (!seg) return "";
+                const m = seg.match(/^\{(red|blue|green|orange|purple):([^\{\}\n]+)\}$/);
+                if (m && validColors.has(m[1])) {
+                  return `<span class="nb-c-${m[1]}">${renderTextChunk(m[2])}</span>`;
+                }
+                return renderTextChunk(seg);
+              })
+              .join("");
+          });
+          inner.innerHTML = formattedLines.join("\n");
         }
 
         if (state.updatedAt) {
@@ -1238,28 +1340,29 @@
       // ==================== 簽到互動邏輯 ====================
       function handleSeatClick(seatNum) {
         try {
-          const cycleDate = getEffectiveAttendanceDateStr();
+          const today = getTodayDateStr();
           const key = String(seatNum);
           const existing = state.attendance[key];
           const seatLabel = formatSeatTwoDigits(seatNum);
 
-          if (existing && existing.date === cycleDate) {
-            const isLate = Boolean(existing.late || isLateTimeStr(existing.time));
+          if (existing && existing.date === today) {
             pendingCancelSeatNum = seatNum;
-            document.getElementById("cancelSeatDesc").textContent = `${seatLabel}號（已於 ${existing.time} 簽到${isLate ? "・遲到" : ""}）`;
+            const wasLate = typeof existing.isLate === "boolean" ? existing.isLate : !isOnTimeHHMM(existing.time);
+            const statusText = wasLate ? "遲到" : "準時";
+            document.getElementById("cancelSeatDesc").textContent = `${seatLabel}號（已於 ${existing.time} 簽到・${statusText}）`;
             openModal("modalCancelSeat");
           } else {
             const nowTime = getNowHHMM();
-            const isLate = isLateTimeStr(nowTime);
-            state.attendanceDate = cycleDate;
-            state.attendance[key] = { date: cycleDate, time: nowTime, late: isLate };
+            const onTime = isOnTimeHHMM(nowTime);
+            state.attendanceDate = today;
+            state.attendance[key] = { date: today, time: nowTime, isLate: !onTime };
             state.updatedAt = Date.now();
             saveLocalState();
             renderSeatCheckInBoard();
-            if (isLate) {
-              showToast("⏰", `${seatLabel}號 已簽到（${nowTime}，超過 07:50 記為遲到）`);
-            } else {
+            if (onTime) {
               showToast("🌟", `${seatLabel}號 準時簽到成功（${nowTime}）`);
+            } else {
+              showToast("⏰", `${seatLabel}號 已簽到（${nowTime}・遲到）`);
             }
             pushToCloud();
           }
@@ -1289,26 +1392,29 @@
       // ==================== 匯出 CSV 與重置今日簽到 ====================
       function exportAttendanceCsv() {
         try {
-          const cycleDate = getEffectiveAttendanceDateStr();
+          const today = getTodayDateStr();
           const total = Math.max(1, Math.min(42, parseInt(state.totalSeats, 10) || 28));
-          const rows = ["\uFEFF簽到日期,座號,出席狀態,到校時間"];
+          const rows = ["\uFEFF日期,座號,出席狀態,到校時間"];
           for (let s = 1; s <= total; s++) {
             const rec = state.attendance[String(s)];
-            const isPresent = Boolean(rec && rec.date === cycleDate);
-            const isLate = isPresent && Boolean(rec.late || isLateTimeStr(rec.time));
-            const statusText = !isPresent ? "未到" : isLate ? "遲到" : "已到";
-            rows.push(`${cycleDate},${formatSeatTwoDigits(s)},${statusText},${isPresent ? rec.time : "--:--"}`);
+            const isPresent = Boolean(rec && rec.date === today);
+            let statusStr = "未到";
+            if (isPresent) {
+              const isLate = typeof rec.isLate === "boolean" ? rec.isLate : !isOnTimeHHMM(rec.time);
+              statusStr = isLate ? "遲到" : "準時";
+            }
+            rows.push(`${today},${formatSeatTwoDigits(s)},${statusStr},${isPresent ? rec.time : "--:--"}`);
           }
           const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = url;
-          a.download = `503班_座號簽到表_${cycleDate}.csv`;
+          a.download = `503班_座號簽到表_${today}.csv`;
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
           URL.revokeObjectURL(url);
-          showToast("📥", `已匯出 ${cycleDate} 純座號簽到表（含遲到標記）`);
+          showToast("📥", `已匯出 ${today} 純座號簽到表`);
         } catch (err) {
           console.error("匯出 CSV 失敗:", err);
         }
@@ -1316,7 +1422,7 @@
 
       function confirmResetToday() {
         state.attendance = {};
-        state.attendanceDate = getEffectiveAttendanceDateStr();
+        state.attendanceDate = getTodayDateStr();
         state.updatedAt = Date.now();
         saveLocalState();
         renderSeatCheckInBoard();
@@ -1452,6 +1558,165 @@
         ta.value = text.slice(0, start) + str + text.slice(end);
         ta.focus();
         ta.selectionStart = ta.selectionEnd = start + str.length;
+        updateNextNumberPreview();
+      }
+
+      function handleInsertPageRange() {
+        const startEl = document.getElementById("inputPageStart");
+        const endEl = document.getElementById("inputPageEnd");
+        const subEl = document.getElementById("inputPageSub");
+        if (!startEl) return;
+
+        const pStart = startEl.value.trim();
+        const pEnd = endEl ? endEl.value.trim() : "";
+        const pSub = subEl ? subEl.value.trim() : "";
+
+        if (!pStart && !pEnd && !pSub) {
+          showToast("⚠️", "請先輸入起頁數字（例如 71）！");
+          startEl.focus();
+          return;
+        }
+
+        let formatted = "";
+        if (pStart && pEnd) {
+          formatted = `p.${pStart}~${pEnd}`;
+        } else if (pStart) {
+          formatted = `p.${pStart}`;
+        } else if (pEnd) {
+          formatted = `p.${pEnd}`;
+        }
+
+        if (pSub) {
+          formatted = formatted ? `${formatted} (${pSub})` : `(${pSub})`;
+        }
+
+        // 若游標前一個字不是空白或換行，自動補一個空格讓版面更清爽
+        const ta = document.getElementById("editNotebookText");
+        const pos = ta && typeof ta.selectionStart === "number" ? ta.selectionStart : (ta ? ta.value.length : 0);
+        const prevChar = ta && pos > 0 ? ta.value[pos - 1] : "";
+        const leadingSpace = prevChar && !/[\s\n]/.test(prevChar) ? " " : "";
+
+        insertAtTextareaCursor(`${leadingSpace}${formatted}`);
+
+        startEl.value = "";
+        if (endEl) endEl.value = "";
+        if (subEl) subEl.value = "";
+        showToast("📄", `已插入「${formatted}」`);
+      }
+
+      function handleInsertUnit() {
+        const prefixEl = document.getElementById("selectUnitPrefix");
+        const numEl = document.getElementById("inputUnitNum");
+        if (!prefixEl || !numEl) return;
+
+        const prefix = prefixEl.value || "L";
+        const numVal = numEl.value.trim();
+        if (!numVal) {
+          showToast("⚠️", "請先輸入課次或單元編號（例如 8）！");
+          numEl.focus();
+          return;
+        }
+
+        const formatted = `${prefix}${numVal}`;
+        const ta = document.getElementById("editNotebookText");
+        const pos = ta && typeof ta.selectionStart === "number" ? ta.selectionStart : (ta ? ta.value.length : 0);
+        const prevChar = ta && pos > 0 ? ta.value[pos - 1] : "";
+        const leadingSpace = prevChar && !/[\s\n]/.test(prevChar) ? " " : "";
+
+        insertAtTextareaCursor(`${leadingSpace}${formatted}`);
+        numEl.value = "";
+        showToast("📘", `已插入「${formatted}」`);
+      }
+
+      function handleApplyNotebookColor(colorKey) {
+        const ta = document.getElementById("editNotebookText");
+        if (!ta) return;
+
+        const colorNames = {
+          default: "預設深黑色",
+          red: "醒目紅色",
+          blue: "天空藍色",
+          green: "森林綠色",
+          orange: "活力橘色",
+          purple: "葡萄紫色"
+        };
+
+        const start = typeof ta.selectionStart === "number" ? ta.selectionStart : ta.value.length;
+        const end = typeof ta.selectionEnd === "number" ? ta.selectionEnd : start;
+        const text = ta.value;
+
+        // 情況 A：老師有反白選取一段文字 -> 只針對反白文字套用/清除顏色
+        if (start !== end) {
+          const selected = text.slice(start, end);
+          // 先剝除選取字串原本可能帶有的顏色標記
+          const cleaned = selected.replace(/\{(?:red|blue|green|orange|purple):([^\{\}\n]+)\}/g, "$1");
+          const replacement = colorKey === "default" ? cleaned : `{${colorKey}:${cleaned}}`;
+          ta.value = text.slice(0, start) + replacement + text.slice(end);
+          ta.focus();
+          ta.selectionStart = start;
+          ta.selectionEnd = start + replacement.length;
+          updateNextNumberPreview();
+          showToast("🎨", `已將選取文字設為「${colorNames[colorKey] || colorKey}」`);
+          return;
+        }
+
+        // 情況 B：未反白文字 -> 自動針對「游標所在的整行項目」套用/清除顏色
+        const lineStart = text.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
+        let lineEnd = text.indexOf("\n", start);
+        if (lineEnd === -1) lineEnd = text.length;
+
+        const currentLine = text.slice(lineStart, lineEnd);
+        if (!currentLine.trim()) {
+          // 若該行為空白，直接插入範例標記並把游標放在中間方便輸入
+          if (colorKey === "default") return;
+          const stub = `{${colorKey}:}`;
+          ta.value = text.slice(0, start) + stub + text.slice(end);
+          ta.focus();
+          ta.selectionStart = ta.selectionEnd = start + colorKey.length + 2;
+          updateNextNumberPreview();
+          return;
+        }
+
+        // 移除該行原本的顏色標記，再套用新顏色
+        const cleanedLine = currentLine.replace(/\{(?:red|blue|green|orange|purple):([^\{\}\n]+)\}/g, "$1");
+        const newLine = colorKey === "default" ? cleanedLine : `{${colorKey}:${cleanedLine}}`;
+
+        ta.value = text.slice(0, lineStart) + newLine + text.slice(lineEnd);
+        ta.focus();
+        ta.selectionStart = ta.selectionEnd = lineStart + newLine.length;
+        updateNextNumberPreview();
+        showToast("🎨", `已將整行項目設為「${colorNames[colorKey] || colorKey}」`);
+      }
+
+      function handleWrapHorizontal() {
+        const ta = document.getElementById("editNotebookText");
+        if (!ta) return;
+        const start = typeof ta.selectionStart === "number" ? ta.selectionStart : ta.value.length;
+        const end = typeof ta.selectionEnd === "number" ? ta.selectionEnd : start;
+        const text = ta.value;
+
+        if (start !== end) {
+          const selected = text.slice(start, end);
+          // 若已經被 [ ] 包住則取消，否則加上 [ ]
+          if (selected.startsWith("[") && selected.endsWith("]") && selected.length > 2) {
+            const unwrapped = selected.slice(1, -1);
+            ta.value = text.slice(0, start) + unwrapped + text.slice(end);
+            ta.focus();
+            ta.selectionStart = start;
+            ta.selectionEnd = start + unwrapped.length;
+          } else {
+            const wrapped = `[${selected}]`;
+            ta.value = text.slice(0, start) + wrapped + text.slice(end);
+            ta.focus();
+            ta.selectionStart = start;
+            ta.selectionEnd = start + wrapped.length;
+          }
+        } else {
+          // 未反白文字時，直接插入 [] 並將游標放在中間
+          ta.value = text.slice(0, start) + "[]" + text.slice(end);
+          ta.focus();
+          ta.selectionStart = ta.selectionEnd = start + 1;
+        }
         updateNextNumberPreview();
       }
 
@@ -1611,8 +1876,13 @@
 
       function copyParentsPlainText() {
         try {
-          const today = getEffectiveAttendanceDateStr();
-          const content = document.getElementById("editNotebookText").value.trim() || "無";
+          const today = getTodayDateStr();
+          const rawContent = document.getElementById("editNotebookText").value.trim();
+          const content = rawContent
+            ? rawContent
+                .replace(/\{(?:red|blue|green|orange|purple):([^\{\}\n]+)\}/g, "$1")
+                .replace(/\[([^\[\]\n]+)\]/g, "$1")
+            : "無";
           const reminder = document.getElementById("editWarmReminder").value.trim();
           const fullText = `🐾 【${state.classTitle}】${today}\n\n${content}${reminder ? `\n\n💡 溫馨提醒：${reminder}` : ""}`;
 
@@ -1689,11 +1959,11 @@
 
           // 只要雲端已有資料，且雲端時間 >= 本機時間（或本機仍為尚未編輯的預設狀態 updatedAt === 0），優先將雲端（電腦）內容拉取下來！
           if (remote && typeof remote === "object" && ((remote.updatedAt || 0) >= (state.updatedAt || 0) || state.updatedAt === 0)) {
-            const cycleDate = getEffectiveAttendanceDateStr();
+            const today = getTodayDateStr();
             state = Object.assign({}, state, remote);
             if (!Array.isArray(state.subjects)) state.subjects = [...DEFAULT_SUBJECTS];
-            if (state.attendanceDate !== cycleDate) {
-              state.attendanceDate = cycleDate;
+            if (state.attendanceDate !== today) {
+              state.attendanceDate = today;
               state.attendance = {};
             }
             saveLocalState();
@@ -1798,6 +2068,36 @@
 
         on("btnInsertNextNumber", handleInsertNextNumber);
         on("btnResetNumberCounter", handleResetNumberCounter);
+        on("btnWrapHorizontal", handleWrapHorizontal);
+        document.querySelectorAll(".nb-color-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            handleApplyNotebookColor(btn.dataset.nbColor || "default");
+          });
+        });
+        on("btnInsertPageRange", handleInsertPageRange);
+        on("btnInsertUnit", handleInsertUnit);
+
+        ["inputPageStart", "inputPageEnd", "inputPageSub"].forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) {
+            el.addEventListener("keydown", (e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleInsertPageRange();
+              }
+            });
+          }
+        });
+
+        const unitInput = document.getElementById("inputUnitNum");
+        if (unitInput) {
+          unitInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              handleInsertUnit();
+            }
+          });
+        }
 
         const nbTextarea = document.getElementById("editNotebookText");
         if (nbTextarea) {

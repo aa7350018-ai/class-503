@@ -298,7 +298,7 @@
             </span>
           </div>
           <div id="warmReminderDisplay" class="flex-1 min-h-0 text-[25px] lg:text-[28px] xl:text-[31px] font-black text-stone-800 overflow-y-auto custom-scroll whitespace-pre-wrap select-text pr-1">
-            1. 進教室先交作業、安靜閱讀課外書。
+1. 進教室先交作業、安靜閱讀課外書。
 2. 走廊不奔跑、說話輕聲有禮貌。
 3. 尊重同學、愛護公物，天天開心學習！✨
           </div>
@@ -424,7 +424,7 @@
     <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border-2 border-rose-200 text-center">
       <div class="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-3 text-2xl">🌈</div>
       <h3 class="text-lg font-black text-stone-800">確定要重置今日全班簽到嗎？</h3>
-      <p class="text-xs font-bold text-stone-500 mt-2">所有座號將恢復為「未簽到」狀態，右側直式聯絡簿與溫馨提醒都會完整保留喔！</p>
+      <p class="text-xs font-bold text-stone-500 mt-2">所有座號將恢復為「未簽到」狀態並同步至雲端，右側直式聯絡簿與溫馨提醒都會完整保留喔！</p>
       <div class="grid grid-cols-2 gap-2.5 mt-5">
         <button type="button" id="btnAbortReset" class="py-2.5 rounded-2xl font-black text-stone-700 bg-stone-100 hover:bg-stone-200 transition cursor-pointer">先不要</button>
         <button type="button" id="btnConfirmReset" class="py-2.5 rounded-2xl font-black text-white bg-rose-500 hover:bg-rose-600 transition cursor-pointer">確定重置</button>
@@ -833,6 +833,8 @@
       let pollTimer = null;
       let toastTimer = null;
       let manualResetNumberFlag = false;
+      let isPushingToCloud = false;
+      let pendingRepush = false;
 
       // ==================== 日期與時間工具 ====================
       function getTodayDateStr() {
@@ -915,6 +917,9 @@
               if (!Array.isArray(state.subjects)) {
                 state.subjects = [...DEFAULT_SUBJECTS];
               }
+              if (!state.attendance || typeof state.attendance !== "object") {
+                state.attendance = {};
+              }
             }
           }
           const today = getTodayDateStr();
@@ -948,6 +953,22 @@
         } catch (err) {
           console.error("儲存雲端設定失敗:", err);
         }
+      }
+
+      // ==================== 合併遠端資料輔助函式（修正 Firebase 省略空物件 {} 導致重置失效的問題） ====================
+      function applyRemoteState(remote) {
+        const today = getTodayDateStr();
+        const merged = Object.assign({}, state, remote);
+        // 關鍵修正：Firebase 會自動移除空物件 {}，所以若遠端沒有 attendance 欄位，代表全班已被重置清空！
+        merged.attendance = (remote.attendance && typeof remote.attendance === "object") ? remote.attendance : {};
+        merged.subjects = Array.isArray(remote.subjects) ? remote.subjects : [...DEFAULT_SUBJECTS];
+        if (merged.attendanceDate !== today) {
+          merged.attendanceDate = today;
+          merged.attendance = {};
+        }
+        state = merged;
+        saveLocalState();
+        renderAll();
       }
 
       // ==================== Firebase Realtime Database REST API 同步 ====================
@@ -984,12 +1005,21 @@
           setSyncStatus("local");
           return false;
         }
+        // 若正在上傳中，標記需要再補傳一次最新狀態，避免連續快速操作遺漏
+        if (isPushingToCloud) {
+          pendingRepush = true;
+          return true;
+        }
+        isPushingToCloud = true;
         try {
           setSyncStatus("syncing");
+          const payload = Object.assign({}, state, {
+            attendance: state.attendance || {}
+          });
           const res = await fetch(url, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(state)
+            body: JSON.stringify(payload)
           });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           setSyncStatus("connected");
@@ -998,6 +1028,12 @@
           console.error("雲端寫入失敗:", err);
           setSyncStatus("error");
           return false;
+        } finally {
+          isPushingToCloud = false;
+          if (pendingRepush) {
+            pendingRepush = false;
+            pushToCloud();
+          }
         }
       }
 
@@ -1007,21 +1043,21 @@
           setSyncStatus("local");
           return;
         }
+        // 正在上傳本地變更時，跳過本次拉取，避免舊資料覆蓋剛修改的簽到/取消/重置
+        if (isPushingToCloud) return;
+
+        const pushStartTimestamp = state.updatedAt || 0;
         try {
-          const res = await fetch(url, { method: "GET", cache: "no-store" });
+          const res = await fetch(`${url}?t=${Date.now()}`, { method: "GET", cache: "no-store" });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const remote = await res.json();
+
+          // 若在請求期間本地又發生了新的操作（如按了取消或重置），則放棄覆蓋
+          if (isPushingToCloud || (state.updatedAt || 0) > pushStartTimestamp) return;
+
           if (remote && typeof remote === "object") {
             if ((remote.updatedAt || 0) > (state.updatedAt || 0)) {
-              const today = getTodayDateStr();
-              state = Object.assign({}, state, remote);
-              if (!Array.isArray(state.subjects)) state.subjects = [...DEFAULT_SUBJECTS];
-              if (state.attendanceDate !== today) {
-                state.attendanceDate = today;
-                state.attendance = {};
-              }
-              saveLocalState();
-              renderAll();
+              applyRemoteState(remote);
             }
           } else if (remote === null) {
             await pushToCloud();
@@ -1040,7 +1076,7 @@
           return;
         }
         pullFromCloud();
-        pollTimer = setInterval(pullFromCloud, 5000);
+        pollTimer = setInterval(pullFromCloud, 4000);
       }
 
       // ==================== 主畫面三區渲染 ====================
@@ -1337,8 +1373,8 @@
         }
       }
 
-      // ==================== 簽到互動邏輯 ====================
-      function handleSeatClick(seatNum) {
+      // ==================== 簽到互動邏輯（含完整遠端同步） ====================
+      async function handleSeatClick(seatNum) {
         try {
           const today = getTodayDateStr();
           const key = String(seatNum);
@@ -1364,26 +1400,36 @@
             } else {
               showToast("⏰", `${seatLabel}號 已簽到（${nowTime}・遲到）`);
             }
-            pushToCloud();
+            await pushToCloud();
           }
         } catch (err) {
           console.error("簽到點擊異常:", err);
         }
       }
 
-      function confirmCancelSeat() {
+      async function confirmCancelSeat() {
         try {
           if (pendingCancelSeatNum === null) return;
           const key = String(pendingCancelSeatNum);
           const seatLabel = formatSeatTwoDigits(pendingCancelSeatNum);
-          delete state.attendance[key];
+
+          // 建立全新物件確保乾淨刪除該座號並推進時間戳
+          const nextAttendance = Object.assign({}, state.attendance || {});
+          delete nextAttendance[key];
+          state.attendance = nextAttendance;
           state.updatedAt = Date.now();
+
           saveLocalState();
           renderSeatCheckInBoard();
-          showToast("↩️", `已取消 ${seatLabel}號 的簽到`);
           pendingCancelSeatNum = null;
           closeModal("modalCancelSeat");
-          pushToCloud();
+
+          const synced = await pushToCloud();
+          if (synced) {
+            showToast("☁️", `已取消 ${seatLabel}號 簽到並同步至雲端`);
+          } else {
+            showToast("↩️", `已取消 ${seatLabel}號 的簽到`);
+          }
         } catch (err) {
           console.error("取消簽到異常:", err);
         }
@@ -1420,15 +1466,24 @@
         }
       }
 
-      function confirmResetToday() {
-        state.attendance = {};
-        state.attendanceDate = getTodayDateStr();
-        state.updatedAt = Date.now();
-        saveLocalState();
-        renderSeatCheckInBoard();
-        closeModal("modalResetToday");
-        showToast("🌈", "已重置今日全班簽到紀錄");
-        pushToCloud();
+      async function confirmResetToday() {
+        try {
+          state.attendance = {};
+          state.attendanceDate = getTodayDateStr();
+          state.updatedAt = Date.now();
+          saveLocalState();
+          renderSeatCheckInBoard();
+          closeModal("modalResetToday");
+
+          const synced = await pushToCloud();
+          if (synced) {
+            showToast("☁️", "已重置今日全班簽到並同步至雲端！");
+          } else {
+            showToast("🌈", "已重置今日全班簽到紀錄");
+          }
+        } catch (err) {
+          console.error("重置簽到異常:", err);
+        }
       }
 
       // ==================== 老師編輯模式：智慧「下一個」編號＋可記憶「作業類別」 ====================
@@ -1590,7 +1645,6 @@
           formatted = formatted ? `${formatted} (${pSub})` : `(${pSub})`;
         }
 
-        // 若游標前一個字不是空白或換行，自動補一個空格讓版面更清爽
         const ta = document.getElementById("editNotebookText");
         const pos = ta && typeof ta.selectionStart === "number" ? ta.selectionStart : (ta ? ta.value.length : 0);
         const prevChar = ta && pos > 0 ? ta.value[pos - 1] : "";
@@ -1645,10 +1699,8 @@
         const end = typeof ta.selectionEnd === "number" ? ta.selectionEnd : start;
         const text = ta.value;
 
-        // 情況 A：老師有反白選取一段文字 -> 只針對反白文字套用/清除顏色
         if (start !== end) {
           const selected = text.slice(start, end);
-          // 先剝除選取字串原本可能帶有的顏色標記
           const cleaned = selected.replace(/\{(?:red|blue|green|orange|purple):([^\{\}\n]+)\}/g, "$1");
           const replacement = colorKey === "default" ? cleaned : `{${colorKey}:${cleaned}}`;
           ta.value = text.slice(0, start) + replacement + text.slice(end);
@@ -1660,14 +1712,12 @@
           return;
         }
 
-        // 情況 B：未反白文字 -> 自動針對「游標所在的整行項目」套用/清除顏色
         const lineStart = text.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
         let lineEnd = text.indexOf("\n", start);
         if (lineEnd === -1) lineEnd = text.length;
 
         const currentLine = text.slice(lineStart, lineEnd);
         if (!currentLine.trim()) {
-          // 若該行為空白，直接插入範例標記並把游標放在中間方便輸入
           if (colorKey === "default") return;
           const stub = `{${colorKey}:}`;
           ta.value = text.slice(0, start) + stub + text.slice(end);
@@ -1677,7 +1727,6 @@
           return;
         }
 
-        // 移除該行原本的顏色標記，再套用新顏色
         const cleanedLine = currentLine.replace(/\{(?:red|blue|green|orange|purple):([^\{\}\n]+)\}/g, "$1");
         const newLine = colorKey === "default" ? cleanedLine : `{${colorKey}:${cleanedLine}}`;
 
@@ -1697,7 +1746,6 @@
 
         if (start !== end) {
           const selected = text.slice(start, end);
-          // 若已經被 [ ] 包住則取消，否則加上 [ ]
           if (selected.startsWith("[") && selected.endsWith("]") && selected.length > 2) {
             const unwrapped = selected.slice(1, -1);
             ta.value = text.slice(0, start) + unwrapped + text.slice(end);
@@ -1712,7 +1760,6 @@
             ta.selectionEnd = start + wrapped.length;
           }
         } else {
-          // 未反白文字時，直接插入 [] 並將游標放在中間
           ta.value = text.slice(0, start) + "[]" + text.slice(end);
           ta.focus();
           ta.selectionStart = ta.selectionEnd = start + 1;
@@ -1953,21 +2000,12 @@
 
         try {
           const endpoint = getFirebaseEndpoint();
-          const res = await fetch(endpoint, { method: "GET", cache: "no-store" });
+          const res = await fetch(`${endpoint}?t=${Date.now()}`, { method: "GET", cache: "no-store" });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const remote = await res.json();
 
-          // 只要雲端已有資料，且雲端時間 >= 本機時間（或本機仍為尚未編輯的預設狀態 updatedAt === 0），優先將雲端（電腦）內容拉取下來！
           if (remote && typeof remote === "object" && ((remote.updatedAt || 0) >= (state.updatedAt || 0) || state.updatedAt === 0)) {
-            const today = getTodayDateStr();
-            state = Object.assign({}, state, remote);
-            if (!Array.isArray(state.subjects)) state.subjects = [...DEFAULT_SUBJECTS];
-            if (state.attendanceDate !== today) {
-              state.attendanceDate = today;
-              state.attendance = {};
-            }
-            saveLocalState();
-            renderAll();
+            applyRemoteState(remote);
           } else if (remote === null && state.updatedAt > 0) {
             await pushToCloud();
           }
